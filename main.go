@@ -47,6 +47,7 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		VerifyReceivedRollAppTx(rollAppRpc, internalTx)
 		internalTxBytes := []byte(internalTx)
 
 		msg := &types.MsgSubmitRollTx{
