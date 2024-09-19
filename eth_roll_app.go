@@ -14,6 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
+var NonceMap = make(map[string]int64)
+
 // JSON-RPC request structure
 type JsonRPCRequest struct {
 	JsonRPC string        `json:"jsonrpc"`
@@ -191,10 +193,17 @@ func VerifyReceivedRollAppTx(rollAppRpc, rawTx string) error {
 	}
 
 	nonce := tx.Nonce()
-	addressNonceFromRpc, err := getAddressNonce(rollAppRpc, fromAddress.String())
-	if err != nil {
-		log.Fatalf("Failed to fetch the nonce: %v", err)
-		return fmt.Errorf("Failed to fetch the nonce: %v", err)
+	var addressNonceFromRpc int64
+
+	if nonceFromMap, ok := NonceMap[fromAddress.String()]; ok {
+		addressNonceFromRpc = nonceFromMap
+	} else {
+		addressNonceFromRpc, err := getAddressNonce(rollAppRpc, fromAddress.String())
+		if err != nil {
+			log.Fatalf("Failed to fetch the nonce: %v", err)
+			return fmt.Errorf("Failed to fetch the nonce: %v", err)
+		}
+		NonceMap[fromAddress.String()] = addressNonceFromRpc + 1
 	}
 
 	if nonce != uint64(addressNonceFromRpc) {
