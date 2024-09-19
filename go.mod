@@ -6,9 +6,13 @@ toolchain go1.22.7
 
 require (
 	github.com/0xElder/elder v0.0.0
-	github.com/0xElder/op-geth v0.0.0
 	github.com/cosmos/cosmos-sdk v0.50.9
 
+)
+
+require (
+	github.com/crate-crypto/go-ipa v0.0.0-20240223125850-b1e8a79f509c // indirect
+	github.com/ethereum/go-verkle v0.1.1-0.20240829091221-dffa7562dbe9 // indirect
 )
 
 require (
@@ -17,7 +21,7 @@ require (
 	github.com/consensys/gnark-crypto v0.12.1 // indirect
 	github.com/crate-crypto/go-kzg-4844 v1.0.0 // indirect
 	github.com/ethereum/c-kzg-4844 v1.0.0 // indirect
-	github.com/ethereum/go-ethereum v1.14.9 
+	github.com/ethereum/go-ethereum v1.14.9
 	github.com/holiman/uint256 v1.3.1 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/supranational/blst v0.3.11 // indirect

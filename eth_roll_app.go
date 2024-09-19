@@ -8,13 +8,14 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 
-	"github.com/0xElder/op-geth/core/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-var NonceMap = make(map[string]int64)
+var RollAppNonceMap = make(map[string]uint64)
 
 // JSON-RPC request structure
 type JsonRPCRequest struct {
@@ -45,7 +46,7 @@ func ForwardToRollAppRPC(w http.ResponseWriter, targetRPC string, body []byte) {
 }
 
 // Fetches the chain ID from the target RPC endpoint
-func GetRollAppId(rollAppRPC string) uint64 {
+func GetRollAppId(rollAppRPC string) (uint64, error) {
 	// Set up the JSON-RPC request payload
 	rpcRequest := JsonRPCRequest{
 		JsonRPC: "2.0",
@@ -58,36 +59,43 @@ func GetRollAppId(rollAppRPC string) uint64 {
 	requestBody, err := json.Marshal(rpcRequest)
 	if err != nil {
 		log.Fatalf("Failed to marshal request: %v", err)
-		return 0
+		return 0, err
 	}
 
 	// Forward the request to the target RPC endpoint
 	resp, err := QueryRollAppRPC(rollAppRPC, requestBody)
 	if err != nil {
 		log.Fatalf("Failed to fetch chain ID: %v", err)
-		return 0
+		return 0, err
 	}
 
 	// Convert the response to JSON
 	jsonResp, err := RollAppRpcBytesToJsonResp(resp)
 	if err != nil {
 		log.Fatalf("Failed to parse JSON response: %v", err)
-		return 0
+		return 0, err
 	}
 
-	if rollid, ok := jsonResp.Result.(uint64); !ok {
-		log.Fatalf("Failed to parse roll ID: %v", jsonResp.Result)
-		return 0
-	} else {
-		return rollid
+	if jsonResp.Error != nil {
+		log.Fatalf("Error in RPC call: %v", jsonResp.Error)
+		return 0, jsonResp.Error.(error)
 	}
+
+	result := jsonResp.Result.(string)
+	rollid, err := strconv.ParseUint(result[2:], 16, 64)
+	if err != nil {
+		log.Fatalf("Failed to parse roll ID: %v", jsonResp.Result)
+		return 0, err
+	}
+
+	return rollid, nil
 }
 
-func getAddressNonce(rollAppRPC string, address string) (int64, error) {
+func GetAddressNonce(rollAppRPC string, address string) (uint64, error) {
 	// JSON-RPC request payload to get the transaction count (nonce)
 	rpcRequest := JsonRPCRequest{
 		JsonRPC: "2.0",
-		Method:  "eth_chainId",
+		Method:  "eth_getTransactionCount",
 		Params:  []interface{}{address, "latest"},
 		ID:      1,
 	}
@@ -113,19 +121,17 @@ func getAddressNonce(rollAppRPC string, address string) (int64, error) {
 		return 0, nil
 	}
 
-	// Read the response
-	result := jsonResp.Result.(map[string]interface{})
-
-	// Extract the nonce (transaction count) from the response
-	if result["error"] != nil {
-		log.Fatalf("Error in RPC call: %v", result["error"])
-		return 0, result["error"].(error)
+	if jsonResp.Error != nil {
+		log.Fatalf("Error in RPC call: %v", jsonResp.Error)
+		return 0, jsonResp.Error.(error)
 	}
-	nonceHex := result["result"].(string)
 
-	// Convert hex string to integer
-	var nonce int64
-	fmt.Sscanf(nonceHex, "0x%x", &nonce)
+	result := jsonResp.Result.(string)
+	nonce, err := strconv.ParseUint(result[2:], 16, 64)
+	if err != nil {
+		log.Fatalf("Failed to parse roll ID: %v", jsonResp.Result)
+		return 0, err
+	}
 
 	return nonce, nil
 }
@@ -175,8 +181,13 @@ func VerifyReceivedRollAppTx(rollAppRpc, rawTx string) error {
 		return err
 	}
 
-	chainId := tx.ChainId()                    // Get the sender address from the transaction
-	chainIdFromRpc := GetRollAppId(rollAppRpc) // Get the chain ID from the target RPC endpoint
+	chainId := tx.ChainId()                         // Get the sender address from the transaction
+	chainIdFromRpc, err := GetRollAppId(rollAppRpc) // Get the chain ID from the target RPC endpoint
+	if err != nil {
+		log.Fatalf("Failed to fetch the chain ID: %v", err)
+		return err
+	}
+
 	if chainId.Uint64() != chainIdFromRpc {
 		log.Fatalf("Chain ID mismatch: %d != %d", chainId, chainIdFromRpc)
 		return fmt.Errorf("Chain ID mismatch: %d != %d", chainId, chainIdFromRpc)
@@ -193,20 +204,20 @@ func VerifyReceivedRollAppTx(rollAppRpc, rawTx string) error {
 	}
 
 	nonce := tx.Nonce()
-	var addressNonceFromRpc int64
+	var addressNonceFromRpc uint64
 
-	if nonceFromMap, ok := NonceMap[fromAddress.String()]; ok {
+	if nonceFromMap, ok := RollAppNonceMap[fromAddress.String()]; ok {
 		addressNonceFromRpc = nonceFromMap
 	} else {
-		addressNonceFromRpc, err := getAddressNonce(rollAppRpc, fromAddress.String())
+		addressNonceFromRpc, err := GetAddressNonce(rollAppRpc, fromAddress.String())
 		if err != nil {
 			log.Fatalf("Failed to fetch the nonce: %v", err)
 			return fmt.Errorf("Failed to fetch the nonce: %v", err)
 		}
-		NonceMap[fromAddress.String()] = addressNonceFromRpc + 1
+		RollAppNonceMap[fromAddress.String()] = addressNonceFromRpc + uint64(1)
 	}
 
-	if nonce != uint64(addressNonceFromRpc) {
+	if nonce != addressNonceFromRpc {
 		log.Fatalf("Nonce mismatch: %d != %d", nonce, addressNonceFromRpc)
 		return fmt.Errorf("Nonce mismatch: %d != %d", nonce, addressNonceFromRpc)
 	}

@@ -102,7 +102,12 @@ func main() {
 	rollAppRpc = os.Getenv("ROLL_APP_RPC")
 
 	// Get rollup ID
-	rollID = GetRollAppId(rollAppRpc)
+	// Just to make sure the RPC is working
+	_, err := GetRollAppId(rollAppRpc)
+	if err != nil {
+		log.Fatalf("Failed to fetch rollup ID: %v", err)
+		return
+	}
 
 	// Set up the public/private key
 	privateKeyBytes, err := hex.DecodeString(os.Getenv("COSMOS_PRIVATE_KEY"))

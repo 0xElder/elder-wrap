@@ -21,6 +21,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+var ElderNonceMap = make(map[string]uint64)
+
 func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) error {
 	interfaceRegistry := codectypes.NewInterfaceRegistry()
 	cdc := codec.NewProtoCodec(interfaceRegistry)
@@ -47,6 +49,12 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 	if err != nil {
 		log.Fatalf("Failed to fetch account info: %v", err)
 		return err
+	}
+
+	if nonceFromMap, ok := ElderNonceMap[privateKey.PubKey().Address().String()]; ok {
+		sequenceNumber = nonceFromMap
+	} else {
+		ElderNonceMap[privateKey.PubKey().Address().String()] = sequenceNumber + uint64(1)
 	}
 
 	chainId := queryElderChainID(conn)
