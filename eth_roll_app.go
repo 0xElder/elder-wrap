@@ -198,9 +198,11 @@ func VerifyReceivedRollAppTx(rollAppRpc, rawTx string) error {
 		log.Fatalf("Failed to extract the sender address: %v", err)
 		return err
 	}
-	if fromAddress != common.Address(privateKey.PubKey().Address()) {
-		log.Fatalf("Sender address mismatch: %s != %s", fromAddress, privateKey.PubKey().Address())
-		return fmt.Errorf("Sender address mismatch: %s != %s", fromAddress, privateKey.PubKey().Address())
+
+	pubKey := privateKey.PubKey().Address()
+	if fromAddress.Cmp(common.Address(pubKey)) == 0 {
+		log.Fatalf("Sender address mismatch: %s != %s", fromAddress, pubKey.String())
+		return fmt.Errorf("Sender address mismatch: %s != %s", fromAddress, pubKey.String())
 	}
 
 	nonce := tx.Nonce()

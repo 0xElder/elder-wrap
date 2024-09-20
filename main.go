@@ -50,11 +50,12 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 		VerifyReceivedRollAppTx(rollAppRpc, internalTx)
 		internalTxBytes := []byte(internalTx)
 
+		elderAddress := CosmosPublicKeyToCosmosAddress("elder", privateKey.PubKey().String())
 		msg := &types.MsgSubmitRollTx{
 			RollId:       rollID,
 			TxData:       internalTxBytes,
 			MaxFeesGiven: calcTxFees(internalTxBytes),
-			Sender:       privateKey.PubKey().String(),
+			Sender:       elderAddress,
 		}
 
 		conn, err := grpc.NewClient(elderRpc, grpc.WithTransportCredentials(insecure.NewCredentials())) // The Cosmos SDK doesn't support any transport security mechanism.
