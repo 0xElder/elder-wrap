@@ -9,6 +9,8 @@ import (
 
 	"time"
 
+	"cosmossdk.io/math"
+
 	"github.com/0xElder/elder/x/router/keeper"
 	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -45,12 +47,13 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 	// Set the gas limit
 	// This is a random number 200000
 	txBuilder.SetGasLimit(200000)
-	// txBuilder.SetFeeAmount()
-	// txBuilder.SetMemo()
+	txBuilder.SetFeeAmount(sdktypes.NewCoins(sdktypes.NewCoin("elder", math.NewInt(10))))
+	txBuilder.SetMemo("anshal")
 	// txBuilder.SetTimeoutHeight()
 
-	elderAddress := CosmosPublicKeyToCosmosAddress("elder", privateKey.PubKey().String())
+	elderAddress := CosmosPublicKeyToCosmosAddress("elder", hex.EncodeToString(privateKey.PubKey().Bytes()))
 
+	fmt.Println("Anshal - ", elderAddress)
 	// Account and sequence number: Fetch this from your chain (e.g., using gRPC)
 	accountNumber, sequenceNumber, err := queryElderAccount(conn, elderAddress)
 	if err != nil {
@@ -70,10 +73,27 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 		ChainID:       chainId,
 		AccountNumber: accountNumber,
 		Sequence:      sequenceNumber,
+		PubKey:        privateKey.PubKey(),
+		Address:       privateKey.PubKey().Address().String(),
+	}
+
+	signatureV2 := signing.SignatureV2{
+		PubKey: privateKey.PubKey(),
+		Data: &signing.SingleSignatureData{
+			SignMode:  signing.SignMode(txConfig.SignModeHandler().DefaultMode()),
+			Signature: nil,
+		},
+		Sequence: sequenceNumber,
+	}
+
+	err = txBuilder.SetSignatures(signatureV2)
+	if err != nil {
+		log.Fatalf("Failed to set signatures: %v", err)
+		return err
 	}
 
 	// Sign the transaction
-	signatureV2, err := tx.SignWithPrivKey(
+	signatureV2, err = tx.SignWithPrivKey(
 		context.Background(),
 		signing.SignMode(txConfig.SignModeHandler().DefaultMode()),
 		signerData,
@@ -99,8 +119,6 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 		log.Fatalf("Failed to encode the transaction: %v", err)
 		return err
 	}
-
-	fmt.Println("txBytes: ", txBytes)
 
 	// Broadcast the transaction
 	err = broadcastElderTx(conn, txBytes)
@@ -175,7 +193,8 @@ func broadcastElderTx(conn *grpc.ClientConn, txBytes []byte) error {
 		return err
 	}
 
-	fmt.Println(grpcRes.TxResponse.Code)
+	// Print the response
+	fmt.Println("Response: ", grpcRes)
 	return nil
 }
 
