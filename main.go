@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/0xElder/elder/x/router/types"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -50,7 +51,8 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 		VerifyReceivedRollAppTx(rollAppRpc, internalTx)
 		internalTxBytes := []byte(internalTx)
 
-		elderAddress := CosmosPublicKeyToCosmosAddress("elder", privateKey.PubKey().String())
+		elderAddress := CosmosPublicKeyToCosmosAddress("elder", hex.EncodeToString(privateKey.PubKey().Bytes()))
+
 		msg := &types.MsgSubmitRollTx{
 			RollId:       rollID,
 			TxData:       internalTxBytes,
@@ -111,12 +113,20 @@ func main() {
 	}
 
 	// Set up the public/private key
-	privateKeyBytes, err := hex.DecodeString(os.Getenv("COSMOS_PRIVATE_KEY"))
+	pk_env := os.Getenv("COSMOS_PRIVATE_KEY")
+	if pk_env[0:2] == "0x" {
+		pk_env = pk_env[2:]
+	}
+
+	pkBytes, err := hex.DecodeString(pk_env)
 	if err != nil {
 		log.Fatalf("Failed to decode private key: %v", err)
 	}
+	// Load the SECP256K1 private key from the decoded bytes
+	pk, _ := btcec.PrivKeyFromBytes(pkBytes)
+
 	privateKey = secp256k1.PrivKey{
-		Key: privateKeyBytes,
+		Key: pk.Serialize(),
 	}
 
 	// Setup the HTTP server, listening on port 8545

@@ -23,6 +23,7 @@ import (
 	"golang.org/x/crypto/ripemd160"
 	"google.golang.org/grpc"
 
+	"cosmossdk.io/math"
 	bech32 "github.com/btcsuite/btcutil/bech32"
 )
 
@@ -45,12 +46,10 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 	// Set the gas limit
 	// This is a random number 200000
 	txBuilder.SetGasLimit(200000)
-	// txBuilder.SetFeeAmount()
-	// txBuilder.SetMemo()
-	// txBuilder.SetTimeoutHeight()
+	txBuilder.SetFeeAmount(sdktypes.NewCoins(sdktypes.NewCoin("elder", math.NewInt(10))))
+	txBuilder.SetMemo("anshal")
 
-	elderAddress := CosmosPublicKeyToCosmosAddress("elder", privateKey.PubKey().String())
-
+	elderAddress := CosmosPublicKeyToCosmosAddress("elder", hex.EncodeToString(privateKey.PubKey().Bytes()))
 	// Account and sequence number: Fetch this from your chain (e.g., using gRPC)
 	accountNumber, sequenceNumber, err := queryElderAccount(conn, elderAddress)
 	if err != nil {
@@ -70,10 +69,26 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 		ChainID:       chainId,
 		AccountNumber: accountNumber,
 		Sequence:      sequenceNumber,
+		PubKey:        privateKey.PubKey(),
+		Address:       privateKey.PubKey().Address().String(),
+	}
+
+	signatureV2 := signing.SignatureV2{
+		PubKey: privateKey.PubKey(),
+		Data: &signing.SingleSignatureData{
+			SignMode:  signing.SignMode(txConfig.SignModeHandler().DefaultMode()),
+			Signature: nil,
+		},
+		Sequence: sequenceNumber,
+	}
+	err = txBuilder.SetSignatures(signatureV2)
+	if err != nil {
+		log.Fatalf("Failed to set signatures: %v", err)
+		return err
 	}
 
 	// Sign the transaction
-	signatureV2, err := tx.SignWithPrivKey(
+	signatureV2, err = tx.SignWithPrivKey(
 		context.Background(),
 		signing.SignMode(txConfig.SignModeHandler().DefaultMode()),
 		signerData,
