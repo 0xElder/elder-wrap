@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/0xElder/elder/x/router/keeper"
+	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -46,20 +47,22 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 		return err
 	}
 
-	txBytes, err := txConfig.TxEncoder()(txBuilder.GetTx())
+	// Sign the transaction
+	txBytes, err := signTx(conn, txConfig, txBuilder, true)
 	if err != nil {
-		log.Fatalf("Failed to encode the transaction for mocking: %v", err)
+		log.Fatalf("Failed to sign the transaction: %v", err)
 		return err
 	}
 
 	// Simulate the transaction to estimate gas
 	gasEstimate, err := simulateElderTx(conn, txBytes)
 	if err != nil {
+		log.Fatalf("Failed to simulate the transaction: %v", err)
 		return err
 	}
 
-	// Apply a gas adjustment (e.g., 1.2 to add 20% buffer)
-	gasAdjustment := 1.2
+	// Apply a gas adjustment (e.g., 1.3 to add 30% buffer)
+	gasAdjustment := 1.3
 	adjustedGas := uint64(float64(gasEstimate) * gasAdjustment)
 
 	// Set gas price
@@ -67,7 +70,7 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 	var gasPrice float64
 	if gp == "" {
 		// default gas price
-		gasPrice = .01 * math.Pow(10, -6) // .01 uelder/gas
+		gasPrice = .1 * math.Pow(10, -6) // .1 uelder/gas
 	}
 
 	// Set a fee amount
@@ -78,17 +81,36 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 	txBuilder.SetGasLimit(adjustedGas)
 	txBuilder.SetFeeAmount(sdktypes.NewCoins(fee))
 
+	// Sign the transaction
+	txBytes, err = signTx(conn, txConfig, txBuilder, false)
+	if err != nil {
+		log.Fatalf("Failed to sign the transaction: %v", err)
+		return err
+	}
+
+	// Broadcast the transaction
+	err = broadcastElderTx(conn, txBytes)
+	if err != nil {
+		log.Fatalf("Failed to broadcast the transaction: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func signTx(conn *grpc.ClientConn, txConfig client.TxConfig, txBuilder client.TxBuilder, simulate bool) ([]byte, error) {
 	elderAddress := CosmosPublicKeyToCosmosAddress("elder", hex.EncodeToString(privateKey.PubKey().Bytes()))
 	// Account and sequence number: Fetch this from your chain (e.g., using gRPC)
 	accountNumber, sequenceNumber, err := queryElderAccount(conn, elderAddress)
 	if err != nil {
 		log.Fatalf("Failed to fetch account info: %v", err)
-		return err
+		return []byte{}, err
 	}
 
+	// If we are using the tx to simulate then don't update the map with the nonce
 	if nonceFromMap, ok := ElderNonceMap[elderAddress]; ok {
 		sequenceNumber = nonceFromMap
-	} else {
+	} else if simulate == false {
 		ElderNonceMap[elderAddress] = sequenceNumber + uint64(1)
 	}
 
@@ -113,7 +135,7 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 	err = txBuilder.SetSignatures(signatureV2)
 	if err != nil {
 		log.Fatalf("Failed to set signatures: %v", err)
-		return err
+		return []byte{}, err
 	}
 
 	// Sign the transaction
@@ -128,30 +150,23 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 	)
 	if err != nil {
 		log.Fatalf("Failed to sign the transaction: %v", err)
-		return err
+		return []byte{}, err
 	}
 
 	err = txBuilder.SetSignatures(signatureV2)
 	if err != nil {
 		log.Fatalf("Failed to set signatures: %v", err)
-		return err
+		return []byte{}, err
 	}
 
 	// Encode the transaction
-	txBytes, err = txConfig.TxEncoder()(txBuilder.GetTx())
+	txBytes, err := txConfig.TxEncoder()(txBuilder.GetTx())
 	if err != nil {
 		log.Fatalf("Failed to encode the transaction: %v", err)
-		return err
+		return []byte{}, err
 	}
 
-	// Broadcast the transaction
-	err = broadcastElderTx(conn, txBytes)
-	if err != nil {
-		log.Fatalf("Failed to broadcast the transaction: %v", err)
-		return err
-	}
-
-	return nil
+	return txBytes, nil
 }
 
 func queryElderChainID(conn *grpc.ClientConn) string {
@@ -236,7 +251,7 @@ func broadcastElderTx(conn *grpc.ClientConn, txBytes []byte) error {
 		return err
 	}
 
-	fmt.Println(grpcRes.TxResponse.Code)
+	fmt.Println(grpcRes.TxResponse)
 	return nil
 }
 
