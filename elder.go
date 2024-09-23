@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"math"
+	"os"
 
 	"time"
 
@@ -23,8 +25,10 @@ import (
 	"golang.org/x/crypto/ripemd160"
 	"google.golang.org/grpc"
 
-	"cosmossdk.io/math"
+	cosmosmath "cosmossdk.io/math"
+	elderregistration "github.com/0xElder/elder/api/elder/registration"
 	bech32 "github.com/btcsuite/btcutil/bech32"
+	"github.com/cosmos/cosmos-sdk/baseapp"
 )
 
 var ElderNonceMap = make(map[string]uint64)
@@ -43,11 +47,38 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 		return err
 	}
 
-	// Set the gas limit
-	// This is a random number 200000
-	txBuilder.SetGasLimit(200000)
-	txBuilder.SetFeeAmount(sdktypes.NewCoins(sdktypes.NewCoin("elder", math.NewInt(10))))
-	txBuilder.SetMemo("anshal")
+	txBytes, err := txConfig.TxEncoder()(txBuilder.GetTx())
+	if err != nil {
+		log.Fatalf("Failed to encode the transaction for mocking: %v", err)
+		return err
+	}
+
+	// Simulate the transaction to estimate gas
+	app := baseapp.NewBaseApp("", nil, nil, nil)
+	gasEstimate, _, err := app.Simulate(txBytes)
+	if err != nil {
+		return err
+	}
+
+	// Apply a gas adjustment (e.g., 1.2 to add 20% buffer)
+	gasAdjustment := 1.2
+	adjustedGas := uint64(float64(gasEstimate.GasWanted) * gasAdjustment)
+
+	// Set gas price
+	gp := os.Getenv("ELDER_GAS_PRICE")
+	var gasPrice float64
+	if gp == "" {
+		// default gas price
+		gasPrice = .01 * math.Pow(10, -6) // .01 uelder/gas
+	}
+
+	// Set a fee amount
+	feeAmount := cosmosmath.NewInt(int64(math.Ceil((float64(adjustedGas) * gasPrice))))
+	fee := sdktypes.NewCoin("elder", feeAmount)
+
+	// Set the gas limit and fee amount in txBuilder
+	txBuilder.SetGasLimit(adjustedGas)
+	txBuilder.SetFeeAmount(sdktypes.NewCoins(fee))
 
 	elderAddress := CosmosPublicKeyToCosmosAddress("elder", hex.EncodeToString(privateKey.PubKey().Bytes()))
 	// Account and sequence number: Fetch this from your chain (e.g., using gRPC)
@@ -109,13 +140,11 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 	}
 
 	// Encode the transaction
-	txBytes, err := txConfig.TxEncoder()(txBuilder.GetTx())
+	txBytes, err = txConfig.TxEncoder()(txBuilder.GetTx())
 	if err != nil {
 		log.Fatalf("Failed to encode the transaction: %v", err)
 		return err
 	}
-
-	fmt.Println("txBytes: ", txBytes)
 
 	// Broadcast the transaction
 	err = broadcastElderTx(conn, txBytes)
@@ -170,6 +199,25 @@ func queryElderAccount(conn *grpc.ClientConn, address string) (uint64, uint64, e
 	return account.AccountNumber, account.Sequence, nil
 }
 
+func queryElderRollMinTxFees(conn *grpc.ClientConn, rollId uint64) (uint64, error) {
+	// Create a client for querying the roll registration
+	registerClient := elderregistration.NewQueryClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	// Fetch the roll registration
+	rollReq := &elderregistration.QueryQueryRollRequest{
+		Id: rollId,
+	}
+	rollRes, err := registerClient.QueryRoll(ctx, rollReq)
+	if err != nil {
+		log.Fatalf("Failed to fetch roll registration: %v", err)
+		return 0, err
+	}
+
+	return rollRes.Roll.MinTxFees, nil
+}
+
 func broadcastElderTx(conn *grpc.ClientConn, txBytes []byte) error {
 	// Broadcast the tx via gRPC. We create a new client for the Protobuf Tx
 	// service.
@@ -194,11 +242,14 @@ func broadcastElderTx(conn *grpc.ClientConn, txBytes []byte) error {
 	return nil
 }
 
-func calcTxFees(txData []byte) uint64 {
-	// Random number 5
-	feesPerByte := uint64(5)
-	keeper.TxFees(txData, feesPerByte)
-	return 0
+func calcTxFees(conn *grpc.ClientConn, txData []byte, rollId uint64) uint64 {
+	// Fetch the fees per byte from the chain
+	feesPerByte, err := queryElderRollMinTxFees(conn, rollId)
+	if err != nil {
+		return 0
+	}
+
+	return keeper.TxFees(txData, feesPerByte)
 }
 
 // PublicKeyToAddress converts secp256k1 public key to a bech32 Tendermint/Cosmos based address

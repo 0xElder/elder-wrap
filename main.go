@@ -19,7 +19,7 @@ import (
 // Target RPC endpoint to forward the requests
 
 var privateKey secp256k1.PrivKey
-var rollID uint64
+var rollId uint64
 var elderRpc string
 var rollAppRpc string
 
@@ -53,19 +53,19 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 
 		elderAddress := CosmosPublicKeyToCosmosAddress("elder", hex.EncodeToString(privateKey.PubKey().Bytes()))
 
-		msg := &types.MsgSubmitRollTx{
-			RollId:       rollID,
-			TxData:       internalTxBytes,
-			MaxFeesGiven: calcTxFees(internalTxBytes),
-			Sender:       elderAddress,
-		}
-
 		conn, err := grpc.NewClient(elderRpc, grpc.WithTransportCredentials(insecure.NewCredentials())) // The Cosmos SDK doesn't support any transport security mechanism.
 		if err != nil {
 			http.Error(w, "Failed to connect to the elder RPC", http.StatusInternalServerError)
 			return
 		}
 		defer conn.Close()
+
+		msg := &types.MsgSubmitRollTx{
+			RollId:       rollId,
+			TxData:       internalTxBytes,
+			MaxFeesGiven: calcTxFees(conn, internalTxBytes, rollId),
+			Sender:       elderAddress,
+		}
 
 		response := JsonRPCResponse{
 			JsonRPC: "2.0",

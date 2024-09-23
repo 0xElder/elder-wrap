@@ -1,3 +1,6 @@
 ELDER_RPC=
 ROLL_APP_RPC=
 COSMOS_PRIVATE_KEY=
+
+# Default is .01uelder/gas is nothing is set
+ELDER_GAS_PRICE= 
