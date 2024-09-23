@@ -28,7 +28,6 @@ import (
 	cosmosmath "cosmossdk.io/math"
 	elderregistration "github.com/0xElder/elder/api/elder/registration"
 	bech32 "github.com/btcsuite/btcutil/bech32"
-	"github.com/cosmos/cosmos-sdk/baseapp"
 )
 
 var ElderNonceMap = make(map[string]uint64)
@@ -54,15 +53,14 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 	}
 
 	// Simulate the transaction to estimate gas
-	app := baseapp.NewBaseApp("", nil, nil, nil)
-	gasEstimate, _, err := app.Simulate(txBytes)
+	gasEstimate, err := simulateElderTx(conn, txBytes)
 	if err != nil {
 		return err
 	}
 
 	// Apply a gas adjustment (e.g., 1.2 to add 20% buffer)
 	gasAdjustment := 1.2
-	adjustedGas := uint64(float64(gasEstimate.GasWanted) * gasAdjustment)
+	adjustedGas := uint64(float64(gasEstimate) * gasAdjustment)
 
 	// Set gas price
 	gp := os.Getenv("ELDER_GAS_PRICE")
@@ -242,6 +240,28 @@ func broadcastElderTx(conn *grpc.ClientConn, txBytes []byte) error {
 	return nil
 }
 
+func simulateElderTx(conn *grpc.ClientConn, txBytes []byte) (uint64, error) {
+	// Simulate the tx via gRPC. We create a new client for the Protobuf Tx
+	// service.
+	txClient := txtypes.NewServiceClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	// We then call the SimulateTx method on this client.
+	grpcRes, err := txClient.Simulate(
+		ctx,
+		&txtypes.SimulateRequest{
+			TxBytes: txBytes, // Proto-binary of the signed transaction, see previous step.
+		},
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	fmt.Println(grpcRes.GasInfo.GasUsed)
+	return grpcRes.GasInfo.GasUsed, nil
+}
 func calcTxFees(conn *grpc.ClientConn, txData []byte, rollId uint64) uint64 {
 	// Fetch the fees per byte from the chain
 	feesPerByte, err := queryElderRollMinTxFees(conn, rollId)
