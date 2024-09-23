@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"log"
 	"math"
 	"os"
@@ -70,7 +69,7 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 	var gasPrice float64
 	if gp == "" {
 		// default gas price
-		gasPrice = .1 * math.Pow(10, -6) // .1 uelder/gas
+		gasPrice = .01 * math.Pow(10, -6) // .01 uelder/gas
 	}
 
 	// Set a fee amount
@@ -89,10 +88,16 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 	}
 
 	// Broadcast the transaction
-	err = broadcastElderTx(conn, txBytes)
+	txStaus, err := broadcastElderTx(conn, txBytes)
 	if err != nil {
 		log.Fatalf("Failed to broadcast the transaction: %v", err)
 		return err
+	}
+
+	if txStaus != 0 {
+		elderAddress := CosmosPublicKeyToCosmosAddress("elder", hex.EncodeToString(privateKey.PubKey().Bytes()))
+		ElderNonceMap[elderAddress] = ElderNonceMap[elderAddress] - uint64(1)
+		log.Fatalf("Txn failed with status: %d", txStaus)
 	}
 
 	return nil
@@ -180,7 +185,6 @@ func queryElderChainID(conn *grpc.ClientConn) string {
 		log.Fatalf("Failed to fetch chain info: %v", err)
 	}
 
-	fmt.Printf("Chain ID: %s\n", status.DefaultNodeInfo.Network)
 	return status.DefaultNodeInfo.Network
 }
 
@@ -208,7 +212,6 @@ func queryElderAccount(conn *grpc.ClientConn, address string) (uint64, uint64, e
 		return 0, 0, err
 	}
 
-	fmt.Printf("Account Number: %d, Sequence: %d\n", account.AccountNumber, account.Sequence)
 	return account.AccountNumber, account.Sequence, nil
 }
 
@@ -231,7 +234,7 @@ func queryElderRollMinTxFees(conn *grpc.ClientConn, rollId uint64) (uint64, erro
 	return rollRes.Roll.MinTxFees, nil
 }
 
-func broadcastElderTx(conn *grpc.ClientConn, txBytes []byte) error {
+func broadcastElderTx(conn *grpc.ClientConn, txBytes []byte) (uint32, error) {
 	// Broadcast the tx via gRPC. We create a new client for the Protobuf Tx
 	// service.
 	txClient := txtypes.NewServiceClient(conn)
@@ -248,11 +251,11 @@ func broadcastElderTx(conn *grpc.ClientConn, txBytes []byte) error {
 		},
 	)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	fmt.Println(grpcRes.TxResponse)
-	return nil
+	log.Print("Tx hash: ", grpcRes.TxResponse.TxHash)
+	return grpcRes.TxResponse.Code, nil
 }
 
 func simulateElderTx(conn *grpc.ClientConn, txBytes []byte) (uint64, error) {
@@ -274,9 +277,9 @@ func simulateElderTx(conn *grpc.ClientConn, txBytes []byte) (uint64, error) {
 		return 0, err
 	}
 
-	fmt.Println(grpcRes.GasInfo.GasUsed)
 	return grpcRes.GasInfo.GasUsed, nil
 }
+
 func calcTxFees(conn *grpc.ClientConn, txData []byte, rollId uint64) uint64 {
 	// Fetch the fees per byte from the chain
 	feesPerByte, err := queryElderRollMinTxFees(conn, rollId)
