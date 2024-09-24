@@ -30,8 +30,6 @@ import (
 	bech32 "github.com/btcsuite/btcutil/bech32"
 )
 
-var ElderNonceMap = make(map[string]uint64)
-
 func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) error {
 	interfaceRegistry := codectypes.NewInterfaceRegistry()
 	cdc := codec.NewProtoCodec(interfaceRegistry)
@@ -42,21 +40,21 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 
 	err := txBuilder.SetMsgs(msg)
 	if err != nil {
-		log.Fatalf("Failed to set message: %v", err)
+		log.Fatalf("Failed to set message: %v\n", err)
 		return err
 	}
 
 	// Sign the transaction
 	txBytes, err := signTx(conn, txConfig, txBuilder, true)
 	if err != nil {
-		log.Fatalf("Failed to sign the transaction: %v", err)
+		log.Fatalf("Failed to sign the transaction: %v\n", err)
 		return err
 	}
 
 	// Simulate the transaction to estimate gas
 	gasEstimate, err := simulateElderTx(conn, txBytes)
 	if err != nil {
-		log.Fatalf("Failed to simulate the transaction: %v", err)
+		log.Fatalf("Failed to simulate the transaction: %v\n", err)
 		return err
 	}
 
@@ -83,40 +81,44 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 	// Sign the transaction
 	txBytes, err = signTx(conn, txConfig, txBuilder, false)
 	if err != nil {
-		log.Fatalf("Failed to sign the transaction: %v", err)
+		log.Fatalf("Failed to sign the transaction: %v\n", err)
 		return err
 	}
 
 	// Broadcast the transaction
-	txStaus, err := broadcastElderTx(conn, txBytes)
+	txResponse, err := broadcastElderTx(conn, txBytes)
 	if err != nil {
-		log.Fatalf("Failed to broadcast the transaction: %v", err)
+		log.Fatalf("Failed to broadcast the transaction: %v\n", err)
 		return err
 	}
 
-	if txStaus != 0 {
-		elderAddress := CosmosPublicKeyToCosmosAddress("elder", hex.EncodeToString(privateKey.PubKey().Bytes()))
-		ElderNonceMap[elderAddress] = ElderNonceMap[elderAddress] - uint64(1)
-		log.Fatalf("Txn failed with status: %d", txStaus)
+	if txResponse.Code != 0 {
+		log.Fatalf("Txn failed with status: %d\n", txResponse.Code)
+	}
+
+	for {
+		log.Println("Waiting for tx to be included in a block...")
+		time.Sleep(2 * time.Second)
+		tx, err := getElderTxFromHash(conn, txResponse.TxHash)
+		if err != nil {
+			log.Fatalf("Failed to fetch transaction: %v\n", err)
+			return err
+		}
+		if tx != nil {
+			log.Printf("Txn %s succeeded\n", txResponse.TxHash)
+			break
+		}
 	}
 
 	return nil
 }
 
 func signTx(conn *grpc.ClientConn, txConfig client.TxConfig, txBuilder client.TxBuilder, simulate bool) ([]byte, error) {
-	elderAddress := CosmosPublicKeyToCosmosAddress("elder", hex.EncodeToString(privateKey.PubKey().Bytes()))
 	// Account and sequence number: Fetch this from your chain (e.g., using gRPC)
 	accountNumber, sequenceNumber, err := queryElderAccount(conn, elderAddress)
 	if err != nil {
-		log.Fatalf("Failed to fetch account info: %v", err)
+		log.Fatalf("Failed to fetch account info: %v\n", err)
 		return []byte{}, err
-	}
-
-	// If we are using the tx to simulate then don't update the map with the nonce
-	if nonceFromMap, ok := ElderNonceMap[elderAddress]; ok {
-		sequenceNumber = nonceFromMap
-	} else if simulate == false {
-		ElderNonceMap[elderAddress] = sequenceNumber + uint64(1)
 	}
 
 	chainId := queryElderChainID(conn)
@@ -139,7 +141,7 @@ func signTx(conn *grpc.ClientConn, txConfig client.TxConfig, txBuilder client.Tx
 	}
 	err = txBuilder.SetSignatures(signatureV2)
 	if err != nil {
-		log.Fatalf("Failed to set signatures: %v", err)
+		log.Fatalf("Failed to set signatures: %v\n", err)
 		return []byte{}, err
 	}
 
@@ -154,20 +156,20 @@ func signTx(conn *grpc.ClientConn, txConfig client.TxConfig, txBuilder client.Tx
 		sequenceNumber,
 	)
 	if err != nil {
-		log.Fatalf("Failed to sign the transaction: %v", err)
+		log.Fatalf("Failed to sign the transaction: %v\n", err)
 		return []byte{}, err
 	}
 
 	err = txBuilder.SetSignatures(signatureV2)
 	if err != nil {
-		log.Fatalf("Failed to set signatures: %v", err)
+		log.Fatalf("Failed to set signatures: %v\n", err)
 		return []byte{}, err
 	}
 
 	// Encode the transaction
 	txBytes, err := txConfig.TxEncoder()(txBuilder.GetTx())
 	if err != nil {
-		log.Fatalf("Failed to encode the transaction: %v", err)
+		log.Fatalf("Failed to encode the transaction: %v\n", err)
 		return []byte{}, err
 	}
 
@@ -182,7 +184,7 @@ func queryElderChainID(conn *grpc.ClientConn) string {
 
 	status, err := tmClient.GetNodeInfo(ctx, &cmtservice.GetNodeInfoRequest{})
 	if err != nil {
-		log.Fatalf("Failed to fetch chain info: %v", err)
+		log.Fatalf("Failed to fetch chain info: %v\n", err)
 	}
 
 	return status.DefaultNodeInfo.Network
@@ -200,7 +202,7 @@ func queryElderAccount(conn *grpc.ClientConn, address string) (uint64, uint64, e
 	}
 	accountRes, err := authClient.Account(ctx, accountReq)
 	if err != nil {
-		log.Fatalf("Failed to fetch account info: %v", err)
+		log.Fatalf("Failed to fetch account info: %v\n", err)
 		return 0, 0, err
 	}
 
@@ -208,7 +210,7 @@ func queryElderAccount(conn *grpc.ClientConn, address string) (uint64, uint64, e
 	var account authtypes.BaseAccount
 	err = account.Unmarshal(accountRes.Account.Value)
 	if err != nil {
-		log.Fatalf("Failed to unmarshal account info: %v", err)
+		log.Fatalf("Failed to unmarshal account info: %v\n", err)
 		return 0, 0, err
 	}
 
@@ -227,14 +229,14 @@ func queryElderRollMinTxFees(conn *grpc.ClientConn, rollId uint64) (uint64, erro
 	}
 	rollRes, err := registerClient.QueryRoll(ctx, rollReq)
 	if err != nil {
-		log.Fatalf("Failed to fetch roll registration: %v", err)
+		log.Fatalf("Failed to fetch roll registration: %v\n", err)
 		return 0, err
 	}
 
 	return rollRes.Roll.MinTxFees, nil
 }
 
-func broadcastElderTx(conn *grpc.ClientConn, txBytes []byte) (uint32, error) {
+func broadcastElderTx(conn *grpc.ClientConn, txBytes []byte) (*sdktypes.TxResponse, error) {
 	// Broadcast the tx via gRPC. We create a new client for the Protobuf Tx
 	// service.
 	txClient := txtypes.NewServiceClient(conn)
@@ -251,11 +253,33 @@ func broadcastElderTx(conn *grpc.ClientConn, txBytes []byte) (uint32, error) {
 		},
 	)
 	if err != nil {
-		return 0, err
+		return &sdktypes.TxResponse{}, err
 	}
 
-	log.Print("Tx hash: ", grpcRes.TxResponse.TxHash)
-	return grpcRes.TxResponse.Code, nil
+	log.Printf("Tx hash: %v\n", grpcRes.TxResponse.TxHash)
+	return grpcRes.TxResponse, nil
+}
+
+func getElderTxFromHash(conn *grpc.ClientConn, txHash string) (*txtypes.Tx, error) {
+	// Create a client for querying the Tendermint chain
+	txClient := txtypes.NewServiceClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	// We then call the BroadcastTx method on this client.
+	grpcRes, err := txClient.GetTx(
+		ctx,
+		&txtypes.GetTxRequest{
+			Hash: txHash, // Hash of the transaction
+		},
+	)
+	if err != nil {
+		return &txtypes.Tx{}, err
+	}
+
+	log.Printf("Tx Response: %v\n", grpcRes.TxResponse)
+	return grpcRes.Tx, nil
 }
 
 func simulateElderTx(conn *grpc.ClientConn, txBytes []byte) (uint64, error) {
@@ -295,7 +319,7 @@ func CosmosPublicKeyToCosmosAddress(addressPrefix, publicKeyString string) strin
 	// Decode public key string
 	pubKeyBytes, err := hex.DecodeString(publicKeyString)
 	if err != nil {
-		log.Fatalf("Failed to decode public key hex: %v", err)
+		log.Fatalf("Failed to decode public key hex: %v\n", err)
 	}
 
 	// Hash pubKeyBytes as: RIPEMD160(SHA256(public_key_bytes))
