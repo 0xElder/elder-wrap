@@ -267,7 +267,7 @@ func getElderTxFromHash(conn *grpc.ClientConn, txHash string) (*txtypes.Tx, erro
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	// We then call the BroadcastTx method on this client.
+	// Fetch the transaction
 	grpcRes, err := txClient.GetTx(
 		ctx,
 		&txtypes.GetTxRequest{
