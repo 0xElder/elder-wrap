@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"log"
 	"math"
 	"os"
@@ -45,7 +46,7 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 	}
 
 	// Sign the transaction
-	txBytes, err := signTx(conn, txConfig, txBuilder, true)
+	txBytes, err := signTx(conn, txConfig, txBuilder)
 	if err != nil {
 		log.Fatalf("Failed to sign the transaction: %v\n", err)
 		return err
@@ -79,7 +80,7 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 	txBuilder.SetFeeAmount(sdktypes.NewCoins(fee))
 
 	// Sign the transaction
-	txBytes, err = signTx(conn, txConfig, txBuilder, false)
+	txBytes, err = signTx(conn, txConfig, txBuilder)
 	if err != nil {
 		log.Fatalf("Failed to sign the transaction: %v\n", err)
 		return err
@@ -96,13 +97,14 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 		log.Fatalf("Txn failed with status: %d\n", txResponse.Code)
 	}
 
+	var count = 0
 	for {
+		count++
 		log.Println("Waiting for tx to be included in a block...")
 		time.Sleep(2 * time.Second)
 		tx, err := getElderTxFromHash(conn, txResponse.TxHash)
-		if err != nil {
-			log.Fatalf("Failed to fetch transaction: %v\n", err)
-			return err
+		if count > 10 && err != nil {
+			return fmt.Errorf("Txn %s not found in elder block, err: %v", txResponse.TxHash, err)
 		}
 		if tx != nil {
 			log.Printf("Txn %s succeeded\n", txResponse.TxHash)
@@ -113,7 +115,7 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 	return nil
 }
 
-func signTx(conn *grpc.ClientConn, txConfig client.TxConfig, txBuilder client.TxBuilder, simulate bool) ([]byte, error) {
+func signTx(conn *grpc.ClientConn, txConfig client.TxConfig, txBuilder client.TxBuilder) ([]byte, error) {
 	// Account and sequence number: Fetch this from your chain (e.g., using gRPC)
 	accountNumber, sequenceNumber, err := queryElderAccount(conn, elderAddress)
 	if err != nil {
