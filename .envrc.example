@@ -1,7 +1,7 @@
-ELDER_RPC=
-ROLL_ID=
-ROLL_APP_RPC=
-COSMOS_PRIVATE_KEY=
+export ELDER_RPC=
+export ROLL_ID=
+export ROLL_APP_RPC=
+export COSMOS_PRIVATE_KEY=
 
 # Default is .01uelder/gas is nothing is set
-ELDER_GAS_PRICE= 
+export ELDER_GAS_PRICE= 
