@@ -53,6 +53,10 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if internalTx[0:2] == "0x" {
+			internalTx = internalTx[2:]
+		}
+
 		VerifyReceivedRollAppTx(rollAppRpc, internalTx)
 		internalTxBytes := []byte(internalTx)
 
