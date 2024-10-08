@@ -280,7 +280,15 @@ func getElderTxFromHash(conn *grpc.ClientConn, txHash string) (*txtypes.Tx, erro
 		return &txtypes.Tx{}, err
 	}
 
-	log.Printf("Tx Response Code : %v\n Tx Hash: %v\n", grpcRes.TxResponse.Code, grpcRes.TxResponse.TxHash)
+	var rollAppBlock string
+	for _, event := range grpcRes.TxResponse.Events {
+		if event.Type == "roll_tx_submitted" {
+			rollAppBlock = event.Attributes[0].Value
+		}
+	}
+
+	log.Printf("Tx Response Code : %v\n", grpcRes.TxResponse.Code)
+	log.Printf("Tx will be included in block %v of the roll app\n", rollAppBlock)
 	return grpcRes.Tx, nil
 }
 
