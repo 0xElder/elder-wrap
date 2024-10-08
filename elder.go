@@ -284,6 +284,7 @@ func getElderTxFromHash(conn *grpc.ClientConn, txHash string) (*txtypes.Tx, erro
 	for _, event := range grpcRes.TxResponse.Events {
 		if event.Type == "roll_tx_submitted" {
 			rollAppBlock = event.Attributes[0].Value
+			break
 		}
 	}
 
