@@ -277,7 +277,7 @@ func getElderTxFromHash(conn *grpc.ClientConn, txHash string) (*txtypes.Tx, erro
 		},
 	)
 	if err != nil {
-		return &txtypes.Tx{}, err
+		return nil, err
 	}
 
 	var rollAppBlock string
