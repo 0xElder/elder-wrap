@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"sync"
 
 	"github.com/0xElder/elder/x/router/types"
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -25,10 +24,11 @@ var elderRpc string
 var rollAppRpc string
 var elderAddress string
 
-var mutex = sync.Mutex{}
-
 // Middleware to handle and relay the JSON-RPC requests
 func rpcHandler(w http.ResponseWriter, r *http.Request) {
+	// Set the response header
+	w.Header().Set("Content-Type", "application/json")
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Failed to read request", http.StatusBadRequest)
@@ -44,13 +44,15 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Check if the method is `eth_sendRawTransaction` (signed transaction)
 	if rpcRequest.Method == "eth_sendRawTransaction" {
-		mutex.Lock()
-		defer mutex.Unlock()
+		response := JsonRPCResponse{
+			JsonRPC: "2.0",
+			ID:      1,
+		}
 		log.Println("Caught a signed transaction:", rpcRequest)
 
 		internalTx, ok := rpcRequest.Params[0].(string)
 		if !ok {
-			http.Error(w, "Invalid transaction", http.StatusBadRequest)
+			response.Error = err
 			return
 		}
 
@@ -61,13 +63,13 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 		VerifyReceivedRollAppTx(rollAppRpc, internalTx[2:])
 		internalTxBytes, err := hexutil.Decode(internalTx)
 		if err != nil {
-			http.Error(w, "Failed to decode the transaction", http.StatusBadRequest)
+			response.Error = err
 			return
 		}
 
 		conn, err := grpc.NewClient(elderRpc, grpc.WithTransportCredentials(insecure.NewCredentials())) // The Cosmos SDK doesn't support any transport security mechanism.
 		if err != nil {
-			http.Error(w, "Failed to connect to the elder RPC", http.StatusInternalServerError)
+			response.Error = err
 			return
 		}
 		defer conn.Close()
@@ -79,22 +81,14 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 			Sender:       elderAddress,
 		}
 
-		response := JsonRPCResponse{
-			JsonRPC: "2.0",
-			ID:      1,
-		}
-
 		// Build the transaction and broadcast it
-		err = BuildElderTxFromMsgAndBroadcast(conn, msg)
-		if err != nil {
+		elderTxHash, err := BuildElderTxFromMsgAndBroadcast(conn, msg)
+		if elderTxHash == "" || err != nil {
 			response.Error = err.Error()
-			response.Result = "{'status': '0x1'}"
 		}
-		response.Error = nil
-		response.Result = "{'status': '0x0'}"
+		response.Result = "{\"status\":\"0x0\", \"elderTxHash\":\"" + elderTxHash + "\"}"
 
 		// Send the response back
-		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 	} else {
 		// Relay all other RPC calls to rollup RPC

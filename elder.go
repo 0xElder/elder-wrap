@@ -31,7 +31,7 @@ import (
 	bech32 "github.com/btcsuite/btcutil/bech32"
 )
 
-func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) error {
+func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) (string, error) {
 	interfaceRegistry := codectypes.NewInterfaceRegistry()
 	cdc := codec.NewProtoCodec(interfaceRegistry)
 
@@ -42,21 +42,21 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 	err := txBuilder.SetMsgs(msg)
 	if err != nil {
 		log.Fatalf("Failed to set message: %v\n", err)
-		return err
+		return "", err
 	}
 
 	// Sign the transaction
 	txBytes, err := signTx(conn, txConfig, txBuilder)
 	if err != nil {
 		log.Fatalf("Failed to sign the transaction: %v\n", err)
-		return err
+		return "", err
 	}
 
 	// Simulate the transaction to estimate gas
 	gasEstimate, err := simulateElderTx(conn, txBytes)
 	if err != nil {
 		log.Fatalf("Failed to simulate the transaction: %v\n", err)
-		return err
+		return "", err
 	}
 
 	// Apply a gas adjustment (e.g., 1.5 to add 50% buffer)
@@ -83,14 +83,14 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 	txBytes, err = signTx(conn, txConfig, txBuilder)
 	if err != nil {
 		log.Fatalf("Failed to sign the transaction: %v\n", err)
-		return err
+		return "", err
 	}
 
 	// Broadcast the transaction
 	txResponse, err := broadcastElderTx(conn, txBytes)
 	if err != nil {
 		log.Fatalf("Failed to broadcast the transaction: %v\n", err)
-		return err
+		return "", err
 	}
 
 	if txResponse.Code != 0 {
@@ -104,7 +104,7 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 		time.Sleep(2 * time.Second)
 		tx, err := getElderTxFromHash(conn, txResponse.TxHash)
 		if count > 10 && err != nil {
-			return fmt.Errorf("Txn %s not found in elder block, err: %v", txResponse.TxHash, err)
+			return "", fmt.Errorf("Txn %s not found in elder block, err: %v", txResponse.TxHash, err)
 		}
 		if tx != nil {
 			log.Printf("Txn %s succeeded\n", txResponse.TxHash)
@@ -112,7 +112,7 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 		}
 	}
 
-	return nil
+	return txResponse.TxHash, nil
 }
 
 func signTx(conn *grpc.ClientConn, txConfig client.TxConfig, txBuilder client.TxBuilder) ([]byte, error) {
@@ -280,7 +280,7 @@ func getElderTxFromHash(conn *grpc.ClientConn, txHash string) (*txtypes.Tx, erro
 		return &txtypes.Tx{}, err
 	}
 
-	log.Printf("Tx Response: %v\n", grpcRes.TxResponse)
+	log.Printf("Tx Response Code : %v\n Tx Hash: %v\n", grpcRes.TxResponse.Code, grpcRes.TxResponse.TxHash)
 	return grpcRes.Tx, nil
 }
 
