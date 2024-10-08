@@ -13,6 +13,7 @@ import (
 	"github.com/0xElder/elder/x/router/types"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -53,12 +54,16 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if internalTx[0:2] == "0x" {
-			internalTx = internalTx[2:]
+		if internalTx[0:2] != "0x" {
+			internalTx = "0x" + internalTx
 		}
 
-		VerifyReceivedRollAppTx(rollAppRpc, internalTx)
-		internalTxBytes := []byte(internalTx)
+		VerifyReceivedRollAppTx(rollAppRpc, internalTx[2:])
+		internalTxBytes, err := hexutil.Decode(internalTx)
+		if err != nil {
+			http.Error(w, "Failed to decode the transaction", http.StatusBadRequest)
+			return
+		}
 
 		conn, err := grpc.NewClient(elderRpc, grpc.WithTransportCredentials(insecure.NewCredentials())) // The Cosmos SDK doesn't support any transport security mechanism.
 		if err != nil {

@@ -59,8 +59,8 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) er
 		return err
 	}
 
-	// Apply a gas adjustment (e.g., 1.3 to add 30% buffer)
-	gasAdjustment := 1.3
+	// Apply a gas adjustment (e.g., 1.5 to add 50% buffer)
+	gasAdjustment := 1.5
 	adjustedGas := uint64(float64(gasEstimate) * gasAdjustment)
 
 	// Set gas price
