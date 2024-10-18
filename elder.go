@@ -102,7 +102,7 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) (s
 		count++
 		log.Println("Waiting for tx to be included in a block...")
 		time.Sleep(2 * time.Second)
-		tx, err := getElderTxFromHash(conn, txResponse.TxHash)
+		tx, _, err := getElderTxFromHash(conn, txResponse.TxHash)
 		if count > 10 && err != nil {
 			return "", fmt.Errorf("Txn %s not found in elder block, err: %v", txResponse.TxHash, err)
 		}
@@ -262,7 +262,7 @@ func broadcastElderTx(conn *grpc.ClientConn, txBytes []byte) (*sdktypes.TxRespon
 	return grpcRes.TxResponse, nil
 }
 
-func getElderTxFromHash(conn *grpc.ClientConn, txHash string) (*txtypes.Tx, error) {
+func getElderTxFromHash(conn *grpc.ClientConn, txHash string) (*txtypes.Tx, string, error) {
 	// Create a client for querying the Tendermint chain
 	txClient := txtypes.NewServiceClient(conn)
 
@@ -277,7 +277,7 @@ func getElderTxFromHash(conn *grpc.ClientConn, txHash string) (*txtypes.Tx, erro
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	var rollAppBlock string
@@ -290,7 +290,7 @@ func getElderTxFromHash(conn *grpc.ClientConn, txHash string) (*txtypes.Tx, erro
 
 	log.Printf("Tx Response Code : %v\n", grpcRes.TxResponse.Code)
 	log.Printf("Tx will be included in block %v of the roll app\n", rollAppBlock)
-	return grpcRes.Tx, nil
+	return grpcRes.Tx, rollAppBlock, nil
 }
 
 func simulateElderTx(conn *grpc.ClientConn, txBytes []byte) (uint64, error) {

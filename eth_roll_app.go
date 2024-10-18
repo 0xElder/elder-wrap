@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // JSON-RPC request structure
@@ -163,44 +162,44 @@ func RollAppRpcBytesToJsonResp(body []byte) (JsonRPCResponse, error) {
 	return rpcResponse, nil
 }
 
-func VerifyReceivedRollAppTx(rollAppRpc, rawTx string) error {
+func VerifyReceivedRollAppTx(rollAppRpc, rawTx string) (*types.Transaction, error) {
 	// Decode the raw transaction from hex
 	txBytes, err := hex.DecodeString(rawTx)
 	if err != nil {
 		log.Fatalf("Failed to decode the transaction: %v\n", err)
-		return err
+		return nil, err
 	}
 
 	// Unmarshal the transaction
 	var tx types.Transaction
-	err = rlp.DecodeBytes(txBytes, &tx)
+	err = tx.UnmarshalBinary(txBytes)
 	if err != nil {
 		log.Fatalf("Failed to unmarshal the transaction: %v\n", err)
-		return err
+		return nil, err
 	}
 
 	chainId := tx.ChainId()                         // Get the sender address from the transaction
 	chainIdFromRpc, err := GetRollAppId(rollAppRpc) // Get the chain ID from the target RPC endpoint
 	if err != nil {
 		log.Fatalf("Failed to fetch the chain ID: %v\n", err)
-		return err
+		return nil, err
 	}
 
 	if chainId.Uint64() != chainIdFromRpc {
 		log.Fatalf("Chain ID mismatch: %d != %d\n", chainId, chainIdFromRpc)
-		return fmt.Errorf("Chain ID mismatch: %d != %d", chainId, chainIdFromRpc)
+		return nil, fmt.Errorf("Chain ID mismatch: %d != %d", chainId, chainIdFromRpc)
 	}
 
 	fromAddress, err := types.LatestSignerForChainID(chainId).Sender(&tx) // Get the sender address from the transaction
 	if err != nil {
 		log.Fatalf("Failed to extract the sender address: %v\n", err)
-		return err
+		return nil, err
 	}
 
 	pubKey := privateKey.PubKey().Address()
 	if fromAddress.Cmp(common.Address(pubKey)) == 0 {
 		log.Fatalf("Sender address mismatch: %s != %s\n", fromAddress, pubKey.String())
-		return fmt.Errorf("Sender address mismatch: %s != %s\n", fromAddress, pubKey.String())
+		return nil, fmt.Errorf("Sender address mismatch: %s != %s\n", fromAddress, pubKey.String())
 	}
 
 	nonce := tx.Nonce()
@@ -208,13 +207,13 @@ func VerifyReceivedRollAppTx(rollAppRpc, rawTx string) error {
 	addressNonceFromRpc, err := GetAddressNonce(rollAppRpc, fromAddress.String())
 	if err != nil {
 		log.Fatalf("Failed to fetch the nonce: %v\n", err)
-		return fmt.Errorf("Failed to fetch the nonce: %v\n", err)
+		return nil, fmt.Errorf("Failed to fetch the nonce: %v\n", err)
 	}
 
 	if nonce != addressNonceFromRpc {
 		log.Fatalf("Nonce mismatch: %d != %d\n", nonce, addressNonceFromRpc)
-		return fmt.Errorf("Nonce mismatch: %d != %d\n", nonce, addressNonceFromRpc)
+		return nil, fmt.Errorf("Nonce mismatch: %d != %d\n", nonce, addressNonceFromRpc)
 	}
 
-	return nil
+	return &tx, nil
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -48,11 +49,15 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 			JsonRPC: "2.0",
 			ID:      1,
 		}
+
+		// Send the response back
+		defer json.NewEncoder(w).Encode(response)
+
 		log.Println("Caught a signed transaction:", rpcRequest)
 
 		internalTx, ok := rpcRequest.Params[0].(string)
 		if !ok {
-			response.Error = err
+			response.Error = fmt.Errorf("Invalid transaction format")
 			return
 		}
 
@@ -60,16 +65,21 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 			internalTx = "0x" + internalTx
 		}
 
-		VerifyReceivedRollAppTx(rollAppRpc, internalTx[2:])
+		tx, err := VerifyReceivedRollAppTx(rollAppRpc, internalTx[2:])
+		if err != nil {
+			response.Error = err.Error()
+			return
+		}
+
 		internalTxBytes, err := hexutil.Decode(internalTx)
 		if err != nil {
-			response.Error = err
+			response.Error = err.Error()
 			return
 		}
 
 		conn, err := grpc.NewClient(elderRpc, grpc.WithTransportCredentials(insecure.NewCredentials())) // The Cosmos SDK doesn't support any transport security mechanism.
 		if err != nil {
-			response.Error = err
+			response.Error = err.Error()
 			return
 		}
 		defer conn.Close()
@@ -84,12 +94,17 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 		// Build the transaction and broadcast it
 		elderTxHash, err := BuildElderTxFromMsgAndBroadcast(conn, msg)
 		if elderTxHash == "" || err != nil {
-			response.Error = err.Error()
+			response.Error = fmt.Errorf("Failed to broadcast transaction, elderTxHash: %v, err: %v", elderTxHash, err)
+			return
 		}
-		response.Result = "{\"status\":\"0x0\", \"elderTxHash\":\"" + elderTxHash + "\"}"
 
-		// Send the response back
-		json.NewEncoder(w).Encode(response)
+		_, rollAppBlock, err := getElderTxFromHash(conn, elderTxHash)
+		if err != nil || rollAppBlock == "" {
+			response.Error = fmt.Errorf("Failed to fetch elder tx, rollAppBlock: %v, err: %v", rollAppBlock, err)
+			return
+		}
+
+		response.Result = "{\"status\":\"0x0\", \"elderTxHash\":\"" + elderTxHash + "\", \"result\":\"" + tx.Hash().String() + "\"}"
 	} else {
 		// Relay all other RPC calls to rollup RPC
 		ForwardToRollAppRPC(w, rollAppRpc, body)
