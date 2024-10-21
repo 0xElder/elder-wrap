@@ -104,7 +104,7 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		response.Result = "{\"id\":1, \"jsonrpc\": \"2.0\"\", \"result\":\"" + tx.Hash().String() + "\"}"
+		response.Result = "{\"id\":1, \"jsonrpc\": \"2.0\"\", \"result\":\"" + "0x" + tx.Hash().String() + "\"}"
 	} else {
 		// Relay all other RPC calls to rollup RPC
 		ForwardToRollAppRPC(w, rollAppRpc, body)
