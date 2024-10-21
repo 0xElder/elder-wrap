@@ -25,8 +25,8 @@ type JsonRPCRequest struct {
 // JSON-RPC response structure
 type JsonRPCResponse struct {
 	JsonRPC string      `json:"jsonrpc"`
-	Result  interface{} `json:"result"`
-	Error   interface{} `json:"error"`
+	Result  interface{} `json:"result,omitempty"`
+	Error   interface{} `json:"error,omitempty"`
 	ID      interface{} `json:"id"`
 }
 

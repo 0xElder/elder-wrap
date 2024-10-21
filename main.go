@@ -46,12 +46,17 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 	// Check if the method is `eth_sendRawTransaction` (signed transaction)
 	if rpcRequest.Method == "eth_sendRawTransaction" {
 		response := JsonRPCResponse{
-			JsonRPC: "2.0",
-			ID:      1,
+			JsonRPC: rpcRequest.JsonRPC,
+			ID:      rpcRequest.ID,
 		}
 
 		// Send the response back
-		defer json.NewEncoder(w).Encode(response)
+		defer func() {
+			err := json.NewEncoder(w).Encode(response)
+			if err != nil {
+				http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+			}
+		}()
 
 		log.Println("Caught a signed transaction:", rpcRequest)
 
@@ -104,7 +109,7 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		response.Result = "{\"id\":1, \"jsonrpc\": \"2.0\"\", \"result\":\"" + "0x" + tx.Hash().String() + "\"}"
+		response.Result = tx.Hash().String()
 	} else {
 		// Relay all other RPC calls to rollup RPC
 		ForwardToRollAppRPC(w, rollAppRpc, body)
@@ -161,6 +166,6 @@ func main() {
 
 	// Setup the HTTP server, listening on port 8545
 	http.HandleFunc("/", rpcHandler)
-	log.Println("Starting server on port 8545")
-	log.Fatal(http.ListenAndServe(":8545", nil))
+	log.Println("Starting server on port 8555")
+	log.Fatal(http.ListenAndServe(":8555", nil))
 }
