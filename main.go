@@ -129,8 +129,8 @@ func main() {
 		Key: pk.Serialize(),
 	}
 
-	// Setup the HTTP server, listening on port 8545
+	// Setup the HTTP server, listening on port 8546
 	http.HandleFunc("/", rpcHandler)
-	fmt.Println("Starting server on port 8545")
-	log.Fatal(http.ListenAndServe(":8545", nil))
+	fmt.Println("Starting server on port 8546")
+	log.Fatal(http.ListenAndServe(":8546", nil))
 }
