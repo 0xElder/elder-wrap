@@ -1,3 +1,10 @@
+# ELDER WRAP
+
+# Please enter elder RPC url (generally on port :9090)
 ELDER_RPC=
+
+# Please enter rollApp RPC url (generally on port :8545)
 ROLL_APP_RPC=
+
+# Please enter the private key
 COSMOS_PRIVATE_KEY=
