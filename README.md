@@ -13,7 +13,7 @@
 
 ## Usage
 1. Start the `elder-wrap` binary in your environment.
-2. Configure your EVM tooling to point to the `elder-wrap` endpoint (e.g., `http://localhost:8545`).
+2. Configure your EVM tooling to point to the `elder-wrap` endpoint (e.g., `http://localhost:8546`).
 3. Use your preferred EVM tools as you would with any local node.
 
 # Please follow the following steps to run Elder-Wrap
