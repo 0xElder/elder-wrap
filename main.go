@@ -162,6 +162,12 @@ func main() {
 		Key: pk.Serialize(),
 	}
 
+	http.HandleFunc("/elder-address", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		elderAddress := CosmosPublicKeyToCosmosAddress("elder", hex.EncodeToString(privateKey.PubKey().Bytes()))
+		json.NewEncoder(w).Encode(elderAddress)
+	})
+
 	// Setup the HTTP server, listening on port 8546
 	http.HandleFunc("/", rpcHandler)
 	fmt.Println("Starting server on port 8546")
