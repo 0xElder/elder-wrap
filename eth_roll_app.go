@@ -12,10 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 )
-
-var RollAppNonceMap = make(map[string]uint64)
 
 // JSON-RPC request structure
 type JsonRPCRequest struct {
@@ -28,8 +25,8 @@ type JsonRPCRequest struct {
 // JSON-RPC response structure
 type JsonRPCResponse struct {
 	JsonRPC string      `json:"jsonrpc"`
-	Result  interface{} `json:"result"`
-	Error   interface{} `json:"error"`
+	Result  interface{} `json:"result,omitempty"`
+	Error   interface{} `json:"error,omitempty"`
 	ID      interface{} `json:"id"`
 }
 
@@ -58,33 +55,33 @@ func GetRollAppId(rollAppRPC string) (uint64, error) {
 	// Convert the request to JSON
 	requestBody, err := json.Marshal(rpcRequest)
 	if err != nil {
-		log.Fatalf("Failed to marshal request: %v", err)
+		log.Fatalf("Failed to marshal request: %v\n", err)
 		return 0, err
 	}
 
 	// Forward the request to the target RPC endpoint
 	resp, err := QueryRollAppRPC(rollAppRPC, requestBody)
 	if err != nil {
-		log.Fatalf("Failed to fetch chain ID: %v", err)
+		log.Fatalf("Failed to fetch chain ID: %v\n", err)
 		return 0, err
 	}
 
 	// Convert the response to JSON
 	jsonResp, err := RollAppRpcBytesToJsonResp(resp)
 	if err != nil {
-		log.Fatalf("Failed to parse JSON response: %v", err)
+		log.Fatalf("Failed to parse JSON response: %v\n", err)
 		return 0, err
 	}
 
 	if jsonResp.Error != nil {
-		log.Fatalf("Error in RPC call: %v", jsonResp.Error)
+		log.Fatalf("Error in RPC call: %v\n", jsonResp.Error)
 		return 0, jsonResp.Error.(error)
 	}
 
 	result := jsonResp.Result.(string)
 	rollid, err := strconv.ParseUint(result[2:], 16, 64)
 	if err != nil {
-		log.Fatalf("Failed to parse roll ID: %v", jsonResp.Result)
+		log.Fatalf("Failed to parse roll ID: %v\n", jsonResp.Result)
 		return 0, err
 	}
 
@@ -103,33 +100,33 @@ func GetAddressNonce(rollAppRPC string, address string) (uint64, error) {
 	// Convert the request to JSON
 	requestBody, err := json.Marshal(rpcRequest)
 	if err != nil {
-		log.Fatalf("Failed to marshal request: %v", err)
+		log.Fatalf("Failed to marshal request: %v\n", err)
 		return 0, err
 	}
 
 	// Send the HTTP POST request
 	resp, err := QueryRollAppRPC(rollAppRPC, requestBody)
 	if err != nil {
-		log.Fatalf("Failed to send HTTP request: %v", err)
+		log.Fatalf("Failed to send HTTP request: %v\n", err)
 		return 0, err
 	}
 
 	// Convert the response to JSON
 	jsonResp, err := RollAppRpcBytesToJsonResp(resp)
 	if err != nil {
-		log.Fatalf("Failed to parse JSON response: %v", err)
+		log.Fatalf("Failed to parse JSON response: %v\n", err)
 		return 0, nil
 	}
 
 	if jsonResp.Error != nil {
-		log.Fatalf("Error in RPC call: %v", jsonResp.Error)
+		log.Fatalf("Error in RPC call: %v\n", jsonResp.Error)
 		return 0, jsonResp.Error.(error)
 	}
 
 	result := jsonResp.Result.(string)
 	nonce, err := strconv.ParseUint(result[2:], 16, 64)
 	if err != nil {
-		log.Fatalf("Failed to parse roll ID: %v", jsonResp.Result)
+		log.Fatalf("Failed to parse roll ID: %v\n", jsonResp.Result)
 		return 0, err
 	}
 
@@ -165,64 +162,58 @@ func RollAppRpcBytesToJsonResp(body []byte) (JsonRPCResponse, error) {
 	return rpcResponse, nil
 }
 
-func VerifyReceivedRollAppTx(rollAppRpc, rawTx string) error {
+func VerifyReceivedRollAppTx(rollAppRpc, rawTx string) (*types.Transaction, error) {
 	// Decode the raw transaction from hex
 	txBytes, err := hex.DecodeString(rawTx)
 	if err != nil {
-		log.Fatalf("Failed to decode the transaction: %v", err)
-		return err
+		log.Fatalf("Failed to decode the transaction: %v\n", err)
+		return nil, err
 	}
 
 	// Unmarshal the transaction
 	var tx types.Transaction
-	err = rlp.DecodeBytes(txBytes, &tx)
+	err = tx.UnmarshalBinary(txBytes)
 	if err != nil {
-		log.Fatalf("Failed to unmarshal the transaction: %v", err)
-		return err
+		log.Fatalf("Failed to unmarshal the transaction: %v\n", err)
+		return nil, err
 	}
 
 	chainId := tx.ChainId()                         // Get the sender address from the transaction
 	chainIdFromRpc, err := GetRollAppId(rollAppRpc) // Get the chain ID from the target RPC endpoint
 	if err != nil {
-		log.Fatalf("Failed to fetch the chain ID: %v", err)
-		return err
+		log.Fatalf("Failed to fetch the chain ID: %v\n", err)
+		return nil, err
 	}
 
 	if chainId.Uint64() != chainIdFromRpc {
-		log.Fatalf("Chain ID mismatch: %d != %d", chainId, chainIdFromRpc)
-		return fmt.Errorf("Chain ID mismatch: %d != %d", chainId, chainIdFromRpc)
+		log.Fatalf("Chain ID mismatch: %d != %d\n", chainId, chainIdFromRpc)
+		return nil, fmt.Errorf("Chain ID mismatch: %d != %d", chainId, chainIdFromRpc)
 	}
 
 	fromAddress, err := types.LatestSignerForChainID(chainId).Sender(&tx) // Get the sender address from the transaction
 	if err != nil {
-		log.Fatalf("Failed to extract the sender address: %v", err)
-		return err
+		log.Fatalf("Failed to extract the sender address: %v\n", err)
+		return nil, err
 	}
 
 	pubKey := privateKey.PubKey().Address()
 	if fromAddress.Cmp(common.Address(pubKey)) == 0 {
-		log.Fatalf("Sender address mismatch: %s != %s", fromAddress, pubKey.String())
-		return fmt.Errorf("Sender address mismatch: %s != %s", fromAddress, pubKey.String())
+		log.Fatalf("Sender address mismatch: %s != %s\n", fromAddress, pubKey.String())
+		return nil, fmt.Errorf("Sender address mismatch: %s != %s\n", fromAddress, pubKey.String())
 	}
 
 	nonce := tx.Nonce()
-	var addressNonceFromRpc uint64
 
-	if nonceFromMap, ok := RollAppNonceMap[fromAddress.String()]; ok {
-		addressNonceFromRpc = nonceFromMap
-	} else {
-		addressNonceFromRpc, err := GetAddressNonce(rollAppRpc, fromAddress.String())
-		if err != nil {
-			log.Fatalf("Failed to fetch the nonce: %v", err)
-			return fmt.Errorf("Failed to fetch the nonce: %v", err)
-		}
-		RollAppNonceMap[fromAddress.String()] = addressNonceFromRpc + uint64(1)
+	addressNonceFromRpc, err := GetAddressNonce(rollAppRpc, fromAddress.String())
+	if err != nil {
+		log.Fatalf("Failed to fetch the nonce: %v\n", err)
+		return nil, fmt.Errorf("Failed to fetch the nonce: %v\n", err)
 	}
 
 	if nonce != addressNonceFromRpc {
-		log.Fatalf("Nonce mismatch: %d != %d", nonce, addressNonceFromRpc)
-		return fmt.Errorf("Nonce mismatch: %d != %d", nonce, addressNonceFromRpc)
+		log.Fatalf("Nonce mismatch: %d != %d\n", nonce, addressNonceFromRpc)
+		return nil, fmt.Errorf("Nonce mismatch: %d != %d\n", nonce, addressNonceFromRpc)
 	}
 
-	return nil
+	return &tx, nil
 }
