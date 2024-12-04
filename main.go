@@ -172,5 +172,4 @@ func main() {
 	http.HandleFunc("/", rpcHandler)
 	fmt.Println("Starting server on port 8546")
 	log.Fatal(http.ListenAndServe(":8546", nil))
-
 }
