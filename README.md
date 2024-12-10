@@ -27,3 +27,19 @@ go build
 ./main
 ```
 If nothing gets printed after `direnv allow`, direnv is probably not set properly, [refer](https://direnv.net/docs/hook.html#zsh)
+
+## Docker Build Options
+
+You can also build and run Elder-Wrap using Docker:
+
+### Using Docker Bake
+```bash
+# Build with default settings
+docker buildx bake
+
+# Build with custom GitHub token
+docker buildx bake --set *.args.GITHUB_ACCESS_TOKEN=your_token
+
+# Build with custom tag
+docker buildx bake --set *.tags=elder-wrap:v1.0.0
+```

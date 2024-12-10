@@ -118,7 +118,7 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	// Validate if all the environment variables are set
-	requiredEnvVars := []string{"ELDER_RPC", "ROLL_ID", "ROLL_APP_RPC", "COSMOS_PRIVATE_KEY"}
+	requiredEnvVars := []string{"ELDER_RPC", "ROLL_ID", "ROLL_APP_RPC", "COSMOS_PRIVATE_KEY", "PORT"}
 	for _, envVar := range requiredEnvVars {
 		if len(envVar) == 0 {
 			log.Fatalf("Please set the environment variable %s\n", envVar)
@@ -129,11 +129,18 @@ func main() {
 	elderRpc = os.Getenv("ELDER_RPC")
 	rollAppRpc = os.Getenv("ROLL_APP_RPC")
 	rollIdStr := os.Getenv("ROLL_ID")
+	portStr := os.Getenv("PORT")
 
 	var err error
 	rollId, err = strconv.ParseUint(rollIdStr, 10, 64)
 	if err != nil {
 		log.Fatalf("Failed to parse roll ID: %v\n", err)
+		return
+	}
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		log.Fatalf("Failed to parse port: %v\n", err)
 		return
 	}
 
@@ -170,6 +177,6 @@ func main() {
 
 	// Setup the HTTP server, listening on port 8546
 	http.HandleFunc("/", rpcHandler)
-	fmt.Println("Starting server on port 8546")
-	log.Fatal(http.ListenAndServe(":8546", nil))
+	fmt.Printf("Starting server on port %d\n", port)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
 }
