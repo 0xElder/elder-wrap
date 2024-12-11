@@ -24,8 +24,4 @@ target "elder-wrap" {
     args = {
         GITHUB_ACCESS_TOKEN = "${GITHUB_ACCESS_TOKEN}"
     }
-    platforms = [
-        "linux/amd64",
-        "linux/arm64"
-    ]
 } 
