@@ -1,13 +1,16 @@
 # ELDER WRAP
 
-# enter elder RPC url (generally on port :9090)
-ELDER_RPC=
+# enter elder gRPC url (generally on port :9090)
+export ELDER_gRPC=
 
 # enter rollApp RPC url (generally on port :8545)
-ROLL_APP_RPC=
+export ROLL_APP_RPC=
 
 # enter the private key
-COSMOS_PRIVATE_KEY=
+export COSMOS_PRIVATE_KEY=
 
 # enter roll app id for which txn is intended
 export ROLL_ID=
+
+# Default is .01uelder/gas if nothing is set
+export ELDER_GAS_PRICE=

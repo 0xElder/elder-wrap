@@ -104,7 +104,7 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) (s
 		time.Sleep(2 * time.Second)
 		tx, _, err := getElderTxFromHash(conn, txResponse.TxHash)
 		if count > 10 && err != nil {
-			return "", fmt.Errorf("Txn %s not found in elder block, err: %v", txResponse.TxHash, err)
+			return "", fmt.Errorf("txn %s not found in elder block, err: %v", txResponse.TxHash, err)
 		}
 		if tx != nil {
 			log.Printf("Txn %s succeeded\n", txResponse.TxHash)
