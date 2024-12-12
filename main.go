@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/0xElder/elder/x/router/types"
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -21,7 +22,7 @@ import (
 // Global variables
 var privateKey secp256k1.PrivKey
 var rollId uint64
-var elderRpc string
+var elderGrpc string
 var rollAppRpc string
 var elderAddress string
 
@@ -62,7 +63,7 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 
 		internalTx, ok := rpcRequest.Params[0].(string)
 		if !ok {
-			response.Error = fmt.Errorf("Invalid transaction format")
+			response.Error = fmt.Errorf("invalid transaction format")
 			return
 		}
 
@@ -82,7 +83,7 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		conn, err := grpc.NewClient(elderRpc, grpc.WithTransportCredentials(insecure.NewCredentials())) // The Cosmos SDK doesn't support any transport security mechanism.
+		conn, err := grpc.NewClient(elderGrpc, grpc.WithTransportCredentials(insecure.NewCredentials())) // The Cosmos SDK doesn't support any transport security mechanism.
 		if err != nil {
 			response.Error = err.Error()
 			return
@@ -99,13 +100,13 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 		// Build the transaction and broadcast it
 		elderTxHash, err := BuildElderTxFromMsgAndBroadcast(conn, msg)
 		if elderTxHash == "" || err != nil {
-			response.Error = fmt.Errorf("Failed to broadcast transaction, elderTxHash: %v, err: %v", elderTxHash, err)
+			response.Error = fmt.Errorf("failed to broadcast transaction, elderTxHash: %v, err: %v", elderTxHash, err)
 			return
 		}
 
 		_, rollAppBlock, err := getElderTxFromHash(conn, elderTxHash)
 		if err != nil || rollAppBlock == "" {
-			response.Error = fmt.Errorf("Failed to fetch elder tx, rollAppBlock: %v, err: %v", rollAppBlock, err)
+			response.Error = fmt.Errorf("failed to fetch elder tx, rollAppBlock: %v, err: %v", rollAppBlock, err)
 			return
 		}
 
@@ -126,10 +127,13 @@ func main() {
 	}
 
 	// Set global variables
-	elderRpc = os.Getenv("ELDER_RPC")
+	elderGrpc = os.Getenv("ELDER_gRPC")
 	rollAppRpc = os.Getenv("ROLL_APP_RPC")
 	rollIdStr := os.Getenv("ROLL_ID")
 	portStr := os.Getenv("PORT")
+
+	rollIdStr = strings.TrimPrefix(rollIdStr, "http://")
+	rollIdStr = strings.TrimPrefix(rollIdStr, "https://")
 
 	var err error
 	rollId, err = strconv.ParseUint(rollIdStr, 10, 64)
