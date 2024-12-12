@@ -119,7 +119,7 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	// Validate if all the environment variables are set
-	requiredEnvVars := []string{"ELDER_RPC", "ROLL_ID", "ROLL_APP_RPC", "COSMOS_PRIVATE_KEY", "PORT"}
+	requiredEnvVars := []string{"ELDER_gRPC", "ROLL_ID", "ROLL_APP_RPC", "COSMOS_PRIVATE_KEY", "PORT"}
 	for _, envVar := range requiredEnvVars {
 		if len(envVar) == 0 {
 			log.Fatalf("Please set the environment variable %s\n", envVar)
