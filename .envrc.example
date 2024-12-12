@@ -12,10 +12,8 @@ export COSMOS_PRIVATE_KEY=
 # enter roll app id for which txn is intended
 export ROLL_ID=
 
-<<<<<<< HEAD
 # enter port on which elder-wrap is running
 export PORT=
-=======
+
 # Default is .01uelder/gas if nothing is set
 export ELDER_GAS_PRICE=
->>>>>>> origin/main
