@@ -11,3 +11,6 @@ COSMOS_PRIVATE_KEY=
 
 # enter roll app id for which txn is intended
 export ROLL_ID=
+
+# enter port on which elder-wrap is running
+export PORT=

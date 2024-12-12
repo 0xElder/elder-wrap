@@ -35,11 +35,11 @@ You can also build and run Elder-Wrap using Docker:
 ### Using Docker Bake
 ```bash
 # Build with default settings
-docker buildx bake
+docker buildx bake --load 
 
 # Build with custom GitHub token
-docker buildx bake --set *.args.GITHUB_ACCESS_TOKEN=your_token
+docker buildx bake --load --set *.args.GITHUB_ACCESS_TOKEN=<your_token>
 
 # Build with custom tag
-docker buildx bake --set *.tags=elder-wrap:v1.0.0
+docker buildx bake --load --set *.tags=elder-wrap:<tag>
 ```
