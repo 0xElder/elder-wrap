@@ -5,10 +5,9 @@ go 1.22.6
 toolchain go1.22.8
 
 require (
-	github.com/0xElder/elder v0.0.0
+	github.com/0xElder/elder v0.1.0
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cosmos/cosmos-sdk v0.50.10
-
 )
 
 require (
@@ -174,7 +173,3 @@ require (
 	pgregory.net/rapid v1.1.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
-
-replace github.com/0xElder/elder => /Users/anshal/work/elder
-
-replace github.com/0xElder/op-geth => /Users/anshal/work/op-geth
