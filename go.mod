@@ -6,11 +6,12 @@ toolchain go1.22.8
 
 require (
 	github.com/0xElder/elder v0.1.0
-	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
+	github.com/btcsuite/btcutil v1.0.1
 	github.com/cosmos/cosmos-sdk v0.50.10
 )
 
 require (
+	github.com/btcsuite/btcd v0.20.1-beta // indirect
 	github.com/crate-crypto/go-ipa v0.0.0-20240223125850-b1e8a79f509c // indirect
 	github.com/dgraph-io/badger/v4 v4.2.0 // indirect
 	github.com/ethereum/go-verkle v0.1.1-0.20240829091221-dffa7562dbe9 // indirect

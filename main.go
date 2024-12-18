@@ -25,6 +25,7 @@ var rollId uint64
 var elderGrpc string
 var rollAppRpc string
 var elderAddress string
+var elderWrapPort string
 
 // Middleware to handle and relay the JSON-RPC requests
 func rpcHandler(w http.ResponseWriter, r *http.Request) {
@@ -130,6 +131,7 @@ func main() {
 	elderGrpc = os.Getenv("ELDER_gRPC")
 	rollAppRpc = os.Getenv("ROLL_APP_RPC")
 	rollIdStr := os.Getenv("ROLL_ID")
+	elderWrapPortStr := os.Getenv("ELDER_WRAP_PORT")
 
 	rollIdStr = strings.TrimPrefix(rollIdStr, "http://")
 	rollIdStr = strings.TrimPrefix(rollIdStr, "https://")
@@ -174,6 +176,12 @@ func main() {
 
 	// Setup the HTTP server, listening on port 8546
 	http.HandleFunc("/", rpcHandler)
-	fmt.Println("Starting server on port 8546")
-	log.Fatal(http.ListenAndServe(":8546", nil))
+
+	if elderWrapPortStr == "" {
+		elderWrapPortStr = "8546" // default port is 8546
+	}
+
+	fmt.Printf("Starting server on port %s\n", elderWrapPortStr)
+	elderWrapPortStr = fmt.Sprintf(":%s", elderWrapPortStr)
+	log.Fatal(http.ListenAndServe(elderWrapPortStr, nil))
 }

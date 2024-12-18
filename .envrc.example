@@ -14,3 +14,6 @@ export ROLL_ID=
 
 # Default is .01uelder/gas if nothing is set
 export ELDER_GAS_PRICE=
+
+# Default is 8546 if nothing is set
+export ELDER_WRAP_PORT=
