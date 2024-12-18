@@ -5,7 +5,7 @@ go 1.22.6
 toolchain go1.22.8
 
 require (
-	github.com/0xElder/elder v0.1.0
+	github.com/0xElder/elder v0.1.1-0.20241217115122-a762f50b4001
 	github.com/btcsuite/btcutil v1.0.1
 	github.com/cosmos/cosmos-sdk v0.50.10
 )

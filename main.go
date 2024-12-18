@@ -92,10 +92,9 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 		defer conn.Close()
 
 		msg := &types.MsgSubmitRollTx{
-			RollId:       rollId,
-			TxData:       internalTxBytes,
-			MaxFeesGiven: calcTxFees(conn, internalTxBytes, rollId),
-			Sender:       elderAddress,
+			RollId: rollId,
+			TxData: internalTxBytes,
+			Sender: elderAddress,
 		}
 
 		// Build the transaction and broadcast it
