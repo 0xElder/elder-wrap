@@ -19,6 +19,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+const DEFAULT_EW_PORT = "8546" // default elder-wrap port is 8546
+
 // Global variables
 var privateKey secp256k1.PrivKey
 var rollId uint64
@@ -177,7 +179,7 @@ func main() {
 	http.HandleFunc("/", rpcHandler)
 
 	if elderWrapPortStr == "" {
-		elderWrapPortStr = "8546" // default port is 8546
+		elderWrapPortStr = DEFAULT_EW_PORT
 	}
 
 	fmt.Printf("Starting server on port %s\n", elderWrapPortStr)
