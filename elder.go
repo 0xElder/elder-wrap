@@ -58,7 +58,7 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) (s
 	}
 
 	// Apply a gas adjustment (e.g., 1.5 to add 50% buffer)
-	gasAdjustment := 1.5
+	gasAdjustment := 2.5
 	adjustedGas := uint64(float64(gasEstimate) * gasAdjustment)
 
 	// Set gas price
@@ -66,12 +66,12 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) (s
 	var gasPrice float64
 	if gp == "" {
 		// default gas price
-		gasPrice = .01 * math.Pow(10, -6) // .01 uelder/gas
+		gasPrice = 1.5 // 1.5 uelder/gas
 	}
 
 	// Set a fee amount
 	feeAmount := cosmosmath.NewInt(int64(math.Ceil((float64(adjustedGas) * gasPrice))))
-	fee := sdktypes.NewCoin("elder", feeAmount)
+	fee := sdktypes.NewCoin("uelder", feeAmount)
 
 	// Set the gas limit and fee amount in txBuilder
 	txBuilder.SetGasLimit(adjustedGas)
@@ -92,6 +92,7 @@ func BuildElderTxFromMsgAndBroadcast(conn *grpc.ClientConn, msg sdktypes.Msg) (s
 	}
 
 	if txResponse.Code != 0 {
+		log.Printf("Txn failed with status: %+v\n", txResponse)
 		log.Fatalf("Txn failed with status: %d\n", txResponse.Code)
 	}
 
