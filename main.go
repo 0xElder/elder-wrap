@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/0xElder/elder/utils"
 	"github.com/0xElder/elder/x/router/types"
 	"github.com/btcsuite/btcd/btcec/v2"
-	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -22,7 +22,7 @@ import (
 const DEFAULT_EW_PORT = "8546" // default elder-wrap port is 8546
 
 // Global variables
-var privateKey secp256k1.PrivKey
+var privateKey utils.Secp256k1PrivateKey
 var rollId uint64
 var elderGrpc string
 var rollAppRpc string
@@ -100,13 +100,13 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Build the transaction and broadcast it
-		elderTxHash, err := BuildElderTxFromMsgAndBroadcast(conn, msg)
+		elderTxHash, err := utils.BuildElderTxFromMsgAndBroadcast(conn, privateKey, msg)
 		if elderTxHash == "" || err != nil {
 			response.Error = fmt.Errorf("failed to broadcast transaction, elderTxHash: %v, err: %v", elderTxHash, err)
 			return
 		}
 
-		_, rollAppBlock, err := getElderTxFromHash(conn, elderTxHash)
+		_, rollAppBlock, err := utils.GetElderTxFromHash(conn, elderTxHash)
 		if err != nil || rollAppBlock == "" {
 			response.Error = fmt.Errorf("failed to fetch elder tx, rollAppBlock: %v, err: %v", rollAppBlock, err)
 			return
@@ -165,11 +165,11 @@ func main() {
 
 	// Load the SECP256K1 private key from the decoded bytes
 	pk, _ := btcec.PrivKeyFromBytes(pkBytes)
-	privateKey = secp256k1.PrivKey{
+	privateKey = utils.Secp256k1PrivateKey{
 		Key: pk.Serialize(),
 	}
 
-	elderAddress = CosmosPublicKeyToCosmosAddress("elder", hex.EncodeToString(privateKey.PubKey().Bytes()))
+	elderAddress = utils.CosmosPublicKeyToCosmosAddress("elder", privateKey.PubKey())
 
 	http.HandleFunc("/elder-address", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
