@@ -156,9 +156,7 @@ func main() {
 
 	// Set up the public/private key
 	pk_env := os.Getenv("COSMOS_PRIVATE_KEY")
-	if pk_env[0:2] == "0x" {
-		pk_env = pk_env[2:]
-	}
+	pk_env = strings.TrimPrefix(pk_env, "0x")
 
 	pkBytes, err := hex.DecodeString(pk_env)
 	if err != nil {
