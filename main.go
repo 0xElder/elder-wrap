@@ -28,6 +28,7 @@ var elderGrpc string
 var rollAppRpc string
 var elderAddress string
 var elderWrapPort string
+var gasPrice float64
 
 // Middleware to handle and relay the JSON-RPC requests
 func rpcHandler(w http.ResponseWriter, r *http.Request) {
@@ -100,7 +101,7 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Build the transaction and broadcast it
-		elderTxHash, err := utils.BuildElderTxFromMsgAndBroadcast(conn, privateKey, msg)
+		elderTxHash, err := utils.BuildElderTxFromMsgAndBroadcast(conn, privateKey, msg, gasPrice)
 		if elderTxHash == "" || err != nil {
 			response.Error = fmt.Errorf("failed to broadcast transaction, elderTxHash: %v, err: %v", elderTxHash, err)
 			return
@@ -133,6 +134,7 @@ func main() {
 	rollAppRpc = os.Getenv("ROLL_APP_RPC")
 	rollIdStr := os.Getenv("ROLL_ID")
 	elderWrapPortStr := os.Getenv("ELDER_WRAP_PORT")
+	gasPriceStr := os.Getenv("GAS_PRICE")
 
 	rollIdStr = strings.TrimPrefix(rollIdStr, "http://")
 	rollIdStr = strings.TrimPrefix(rollIdStr, "https://")
@@ -167,6 +169,15 @@ func main() {
 	pk, _ := btcec.PrivKeyFromBytes(pkBytes)
 	privateKey = utils.Secp256k1PrivateKey{
 		Key: pk.Serialize(),
+	}
+
+	// Set the gas price
+	gasPrice = 1.5 // default 1.5uelder/gas
+	if gasPriceStr != "" {
+		gasPrice, err = strconv.ParseFloat(gasPriceStr, 64)
+		if err != nil {
+			log.Fatalf("Failed to parse gas price: %v\n", err)
+		}
 	}
 
 	elderAddress = utils.CosmosPublicKeyToCosmosAddress("elder", privateKey.PubKey())

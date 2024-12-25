@@ -12,7 +12,7 @@ export COSMOS_PRIVATE_KEY=
 # enter roll app id for which txn is intended
 export ROLL_ID=
 
-# Default is .01uelder/gas if nothing is set
+# Default is 1.5uelder/gas if nothing is set (float64)
 export ELDER_GAS_PRICE=
 
 # Default is 8546 if nothing is set
