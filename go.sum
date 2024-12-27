@@ -25,6 +25,10 @@ github.com/0xElder/elder v0.1.1-0.20241225084502-8ad5b02b2aa2 h1:FS2Gn6q52dbxW7l
 github.com/0xElder/elder v0.1.1-0.20241225084502-8ad5b02b2aa2/go.mod h1:syS7gc3+ORZhsVM33y0RyqX65nM68bBSeN/p/OmAwQQ=
 github.com/0xElder/elder v0.1.1-0.20241225085917-c0e767bba717 h1:CcXp/Irl1+D55qGQ7xxBvWgA75sg9R0RpQxJ9XFHc6Q=
 github.com/0xElder/elder v0.1.1-0.20241225085917-c0e767bba717/go.mod h1:syS7gc3+ORZhsVM33y0RyqX65nM68bBSeN/p/OmAwQQ=
+github.com/0xElder/elder v0.1.1-0.20241227071737-a363f89e8bb0 h1:SovoacxAQ9+Mc8SCYOUArgVgkdZYO1sgYSiawFSqkyc=
+github.com/0xElder/elder v0.1.1-0.20241227071737-a363f89e8bb0/go.mod h1:NG/8CCp6HNa256V2MZ/bMMLNCVkRpicNhhLCDWDn92M=
+github.com/0xElder/elder v0.1.1-0.20241227073632-92c492afb2c9 h1:I1mtbnydh4aZQXQz+szOmecMAXCx6dzdpkW6VbRN6k4=
+github.com/0xElder/elder v0.1.1-0.20241227073632-92c492afb2c9/go.mod h1:NG/8CCp6HNa256V2MZ/bMMLNCVkRpicNhhLCDWDn92M=
 github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 h1:/vQbFIOMbk2FiG/kXiLl8BRyzTWDw7gX/Hz7Dd5eDMs=
 github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4/go.mod h1:hN7oaIRCjzsZ2dE+yG5k+rsdt3qcwykqK6HVGcKwsw4=
 github.com/99designs/keyring v1.2.2 h1:pZd3neh/EmUzWONb35LxQfvuY7kiSXAq3HQd97+XBn0=

@@ -28,7 +28,7 @@ var elderGrpc string
 var rollAppRpc string
 var elderAddress string
 var elderWrapPort string
-var gasPrice float64
+var gasPrice uint64
 
 // Middleware to handle and relay the JSON-RPC requests
 func rpcHandler(w http.ResponseWriter, r *http.Request) {
@@ -100,14 +100,18 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 			Sender: elderAddress,
 		}
 
+		authClient := utils.AuthClient(conn)
+		tmClient := utils.TmClient(conn)
+		txClient := utils.TxClient(conn)
+
 		// Build the transaction and broadcast it
-		elderTxHash, err := utils.BuildElderTxFromMsgAndBroadcast(conn, privateKey, msg, gasPrice)
+		elderTxHash, err := utils.BuildElderTxFromMsgAndBroadcast(authClient, tmClient, txClient, privateKey, msg, gasPrice)
 		if elderTxHash == "" || err != nil {
 			response.Error = fmt.Errorf("failed to broadcast transaction, elderTxHash: %v, err: %v", elderTxHash, err)
 			return
 		}
 
-		_, rollAppBlock, err := utils.GetElderTxFromHash(conn, elderTxHash)
+		_, rollAppBlock, err := utils.GetElderTxFromHash(txClient, elderTxHash)
 		if err != nil || rollAppBlock == "" {
 			response.Error = fmt.Errorf("failed to fetch elder tx, rollAppBlock: %v, err: %v", rollAppBlock, err)
 			return
@@ -133,7 +137,7 @@ func main() {
 	elderGrpc = os.Getenv("ELDER_gRPC")
 	rollAppRpc = os.Getenv("ROLL_APP_RPC")
 	rollIdStr := os.Getenv("ROLL_ID")
-	elderWrapPortStr := os.Getenv("ELDER_WRAP_PORT")
+	elderWrapPort = os.Getenv("ELDER_WRAP_PORT")
 	gasPriceStr := os.Getenv("GAS_PRICE")
 
 	rollIdStr = strings.TrimPrefix(rollIdStr, "http://")
@@ -170,15 +174,15 @@ func main() {
 	}
 
 	// Set the gas price
-	gasPrice = 1.5 // default 1.5uelder/gas
+	gasPrice = 2 // default 2uelder/gas
 	if gasPriceStr != "" {
-		gasPrice, err = strconv.ParseFloat(gasPriceStr, 64)
+		gasPrice, err = strconv.ParseUint(gasPriceStr, 10, 64)
 		if err != nil {
 			log.Fatalf("Failed to parse gas price: %v\n", err)
 		}
 	}
 
-	elderAddress = utils.CosmosPublicKeyToCosmosAddress("elder", privateKey.PubKey())
+	elderAddress = utils.CosmosPublicKeyToBech32Address("elder", privateKey.PubKey())
 
 	http.HandleFunc("/elder-address", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -188,11 +192,11 @@ func main() {
 	// Setup the HTTP server, listening on port 8546
 	http.HandleFunc("/", rpcHandler)
 
-	if elderWrapPortStr == "" {
-		elderWrapPortStr = DEFAULT_EW_PORT
+	if elderWrapPort == "" {
+		elderWrapPort = DEFAULT_EW_PORT
 	}
 
-	fmt.Printf("Starting server on port %s\n", elderWrapPortStr)
-	elderWrapPortStr = fmt.Sprintf(":%s", elderWrapPortStr)
-	log.Fatal(http.ListenAndServe(elderWrapPortStr, nil))
+	fmt.Printf("Starting server on port %s\n", elderWrapPort)
+	elderWrapPort = fmt.Sprintf(":%s", elderWrapPort)
+	log.Fatal(http.ListenAndServe(elderWrapPort, nil))
 }
