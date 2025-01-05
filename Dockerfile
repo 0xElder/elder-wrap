@@ -19,7 +19,6 @@ RUN git config --global url."https://${GITHUB_ACCESS_TOKEN}@github.com/".instead
 # Download dependencies
 # RUN go mod download && go mod tidy
 RUN  go mod download
-RUN go mod download github.com/0xElder/elder
 
 # Copy source code
 COPY . .
