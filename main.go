@@ -119,7 +119,7 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	// Validate if all the environment variables are set
-	requiredEnvVars := []string{"ELDER_gRPC", "ROLL_ID", "ROLL_APP_RPC", "COSMOS_PRIVATE_KEY"}
+	requiredEnvVars := []string{"ELDER_gRPC", "ROLL_ID", "ROLL_APP_RPC", "COSMOS_PRIVATE_KEY", "PORT"}
 	for _, envVar := range requiredEnvVars {
 		if len(envVar) == 0 {
 			log.Fatalf("Please set the environment variable %s\n", envVar)
@@ -130,6 +130,7 @@ func main() {
 	elderGrpc = os.Getenv("ELDER_gRPC")
 	rollAppRpc = os.Getenv("ROLL_APP_RPC")
 	rollIdStr := os.Getenv("ROLL_ID")
+	portStr := os.Getenv("PORT")
 
 	rollIdStr = strings.TrimPrefix(rollIdStr, "http://")
 	rollIdStr = strings.TrimPrefix(rollIdStr, "https://")
@@ -138,6 +139,12 @@ func main() {
 	rollId, err = strconv.ParseUint(rollIdStr, 10, 64)
 	if err != nil {
 		log.Fatalf("Failed to parse roll ID: %v\n", err)
+		return
+	}
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		log.Fatalf("Failed to parse port: %v\n", err)
 		return
 	}
 
@@ -166,14 +173,17 @@ func main() {
 		Key: pk.Serialize(),
 	}
 
+	// Get the elder address
+	elderAddress = CosmosPublicKeyToCosmosAddress("elder", hex.EncodeToString(privateKey.PubKey().Bytes()))
+	log.Printf("Elder address: %s\n", elderAddress)
+
 	http.HandleFunc("/elder-address", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		elderAddress := CosmosPublicKeyToCosmosAddress("elder", hex.EncodeToString(privateKey.PubKey().Bytes()))
 		json.NewEncoder(w).Encode(elderAddress)
 	})
 
 	// Setup the HTTP server, listening on port 8546
 	http.HandleFunc("/", rpcHandler)
-	fmt.Println("Starting server on port 8546")
-	log.Fatal(http.ListenAndServe(":8546", nil))
+	fmt.Printf("Starting server on port %d\n", port)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
 }
