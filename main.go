@@ -81,6 +81,9 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		fmt.Printf("Verified transaction Nonce: %+v\n", tx.Nonce())
+		fmt.Printf("Verified transaction Hash: %+v\n", tx.Hash())
+
 		internalTxBytes, err := hexutil.Decode(internalTx)
 		if err != nil {
 			response.Error = err.Error()
