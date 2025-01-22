@@ -126,7 +126,7 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	// Validate if all the environment variables are set
-	requiredEnvVars := []string{"ELDER_gRPC", "ROLL_ID", "ROLL_APP_RPC", "COSMOS_PRIVATE_KEY"}
+	requiredEnvVars := []string{"ELDER_gRPC", "ROLL_ID", "ROLL_APP_RPC", "COSMOS_PRIVATE_KEY", "PORT"}
 	for _, envVar := range requiredEnvVars {
 		if len(envVar) == 0 {
 			log.Fatalf("Please set the environment variable %s\n", envVar)
@@ -182,7 +182,9 @@ func main() {
 		}
 	}
 
+	// Get the elder address
 	elderAddress = utils.CosmosPublicKeyToBech32Address("elder", privateKey.PubKey())
+	log.Printf("Elder address: %s\n", elderAddress)
 
 	http.HandleFunc("/elder-address", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
