@@ -11,20 +11,24 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/0xElder/elder/utils"
 	"github.com/0xElder/elder/x/router/types"
 	"github.com/btcsuite/btcd/btcec/v2"
-	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+const DEFAULT_EW_PORT = "8546" // default elder-wrap port is 8546
+
 // Global variables
-var privateKey secp256k1.PrivKey
+var privateKey utils.Secp256k1PrivateKey
 var rollId uint64
 var elderGrpc string
 var rollAppRpc string
 var elderAddress string
+var elderWrapPort string
+var gasPrice uint64
 
 // Middleware to handle and relay the JSON-RPC requests
 func rpcHandler(w http.ResponseWriter, r *http.Request) {
@@ -91,20 +95,23 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 		defer conn.Close()
 
 		msg := &types.MsgSubmitRollTx{
-			RollId:       rollId,
-			TxData:       internalTxBytes,
-			MaxFeesGiven: calcTxFees(conn, internalTxBytes, rollId),
-			Sender:       elderAddress,
+			RollId: rollId,
+			TxData: internalTxBytes,
+			Sender: elderAddress,
 		}
 
+		authClient := utils.AuthClient(conn)
+		tmClient := utils.TmClient(conn)
+		txClient := utils.TxClient(conn)
+
 		// Build the transaction and broadcast it
-		elderTxHash, err := BuildElderTxFromMsgAndBroadcast(conn, msg)
+		elderTxHash, err := utils.BuildElderTxFromMsgAndBroadcast(authClient, tmClient, txClient, privateKey, msg, gasPrice)
 		if elderTxHash == "" || err != nil {
 			response.Error = fmt.Errorf("failed to broadcast transaction, elderTxHash: %v, err: %v", elderTxHash, err)
 			return
 		}
 
-		_, rollAppBlock, err := getElderTxFromHash(conn, elderTxHash)
+		_, rollAppBlock, err := utils.GetElderTxFromHash(txClient, elderTxHash)
 		if err != nil || rollAppBlock == "" {
 			response.Error = fmt.Errorf("failed to fetch elder tx, rollAppBlock: %v, err: %v", rollAppBlock, err)
 			return
@@ -130,7 +137,8 @@ func main() {
 	elderGrpc = os.Getenv("ELDER_gRPC")
 	rollAppRpc = os.Getenv("ROLL_APP_RPC")
 	rollIdStr := os.Getenv("ROLL_ID")
-	portStr := os.Getenv("PORT")
+	elderWrapPort = os.Getenv("ELDER_WRAP_PORT")
+	gasPriceStr := os.Getenv("GAS_PRICE")
 
 	rollIdStr = strings.TrimPrefix(rollIdStr, "http://")
 	rollIdStr = strings.TrimPrefix(rollIdStr, "https://")
@@ -139,12 +147,6 @@ func main() {
 	rollId, err = strconv.ParseUint(rollIdStr, 10, 64)
 	if err != nil {
 		log.Fatalf("Failed to parse roll ID: %v\n", err)
-		return
-	}
-
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		log.Fatalf("Failed to parse port: %v\n", err)
 		return
 	}
 
@@ -158,9 +160,7 @@ func main() {
 
 	// Set up the public/private key
 	pk_env := os.Getenv("COSMOS_PRIVATE_KEY")
-	if pk_env[0:2] == "0x" {
-		pk_env = pk_env[2:]
-	}
+	pk_env = strings.TrimPrefix(pk_env, "0x")
 
 	pkBytes, err := hex.DecodeString(pk_env)
 	if err != nil {
@@ -169,12 +169,21 @@ func main() {
 
 	// Load the SECP256K1 private key from the decoded bytes
 	pk, _ := btcec.PrivKeyFromBytes(pkBytes)
-	privateKey = secp256k1.PrivKey{
+	privateKey = utils.Secp256k1PrivateKey{
 		Key: pk.Serialize(),
 	}
 
+	// Set the gas price
+	gasPrice = 2 // default 2uelder/gas
+	if gasPriceStr != "" {
+		gasPrice, err = strconv.ParseUint(gasPriceStr, 10, 64)
+		if err != nil {
+			log.Fatalf("Failed to parse gas price: %v\n", err)
+		}
+	}
+
 	// Get the elder address
-	elderAddress = CosmosPublicKeyToCosmosAddress("elder", hex.EncodeToString(privateKey.PubKey().Bytes()))
+	elderAddress = utils.CosmosPublicKeyToBech32Address("elder", privateKey.PubKey())
 	log.Printf("Elder address: %s\n", elderAddress)
 
 	http.HandleFunc("/elder-address", func(w http.ResponseWriter, r *http.Request) {
@@ -184,6 +193,12 @@ func main() {
 
 	// Setup the HTTP server, listening on port 8546
 	http.HandleFunc("/", rpcHandler)
-	fmt.Printf("Starting server on port %d\n", port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
+
+	if elderWrapPort == "" {
+		elderWrapPort = DEFAULT_EW_PORT
+	}
+
+	fmt.Printf("Starting server on port %s\n", elderWrapPort)
+	elderWrapPort = fmt.Sprintf(":%s", elderWrapPort)
+	log.Fatal(http.ListenAndServe(elderWrapPort, nil))
 }
