@@ -4,7 +4,7 @@ go 1.22.6
 
 toolchain go1.22.8
 
-require github.com/0xElder/elder v0.2.0
+require github.com/0xElder/elder v0.1.1-0.20250127112839-0ef17c188e4c
 
 require (
 	github.com/btcsuite/btcd v0.20.1-beta // indirect

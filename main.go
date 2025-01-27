@@ -94,15 +94,17 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		defer conn.Close()
 
+		authClient := utils.AuthClient(conn)
+		tmClient := utils.TmClient(conn)
+		txClient := utils.TxClient(conn)
+
+		accNum, _, err := utils.QueryElderAccount(authClient, elderAddress)
 		msg := &types.MsgSubmitRollTx{
 			RollId: rollId,
 			TxData: internalTxBytes,
 			Sender: elderAddress,
+			AccNum: accNum,
 		}
-
-		authClient := utils.AuthClient(conn)
-		tmClient := utils.TmClient(conn)
-		txClient := utils.TxClient(conn)
 
 		// Build the transaction and broadcast it
 		elderTxHash, err := utils.BuildElderTxFromMsgAndBroadcast(authClient, tmClient, txClient, privateKey, msg, gasPrice)
