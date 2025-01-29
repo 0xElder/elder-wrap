@@ -4,7 +4,7 @@ go 1.22.10
 
 toolchain go1.22.11
 
-require github.com/0xElder/elder v0.2.2-0.20250127185325-891ac4cbf1aa
+require github.com/0xElder/elder v0.2.3
 
 require (
 	github.com/bytedance/sonic v1.12.3 // indirect
