@@ -49,10 +49,6 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if debug {
-		log.Printf("Received JSON-RPC request: %+v\n", rpcRequest)
-	}
-
 	// Check if the method is `eth_sendRawTransaction` (signed transaction)
 	if rpcRequest.Method == "eth_sendRawTransaction" {
 		response := JsonRPCResponse{
@@ -84,6 +80,10 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			response.Error = err.Error()
 			return
+		}
+
+		if debug {
+			log.Printf("Received JSON-RPC request, Tx : %+v\n", tx)
 		}
 
 		internalTxBytes, err := hexutil.Decode(internalTx)
