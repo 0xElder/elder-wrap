@@ -84,6 +84,8 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 
 		if debug {
 			log.Printf("Received JSON-RPC request, Tx : %+v\n", tx)
+			v, r, s := tx.RawSignatureValues()
+			log.Printf("Tx hash: %s, V: %s, R: %s, S: %s\n", tx.Hash().String(), v.String(), r.String(), s.String())
 		}
 
 		internalTxBytes, err := hexutil.Decode(internalTx)
