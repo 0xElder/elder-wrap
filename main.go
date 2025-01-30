@@ -20,6 +20,7 @@ import (
 )
 
 const DEFAULT_EW_PORT = "8546" // default elder-wrap port is 8546
+var debug = false              // for printing debug logs
 
 // Global variables
 var privateKey utils.Secp256k1PrivateKey
@@ -46,6 +47,10 @@ func rpcHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Invalid JSON-RPC request", http.StatusBadRequest)
 		return
+	}
+
+	if debug {
+		log.Printf("Received JSON-RPC request: %+v\n", rpcRequest)
 	}
 
 	// Check if the method is `eth_sendRawTransaction` (signed transaction)
@@ -141,6 +146,11 @@ func main() {
 	rollIdStr := os.Getenv("ROLL_ID")
 	elderWrapPort = os.Getenv("ELDER_WRAP_PORT")
 	gasPriceStr := os.Getenv("GAS_PRICE")
+	debugStr := os.Getenv("DEBUG")
+
+	if debugStr == "true" {
+		debug = true
+	}
 
 	rollIdStr = strings.TrimPrefix(rollIdStr, "http://")
 	rollIdStr = strings.TrimPrefix(rollIdStr, "https://")
