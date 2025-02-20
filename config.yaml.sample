@@ -4,7 +4,7 @@ key_store_dir: /path/to/keys
 rollup_rpcs:
   rollApp1:
     rpc: "https://rollApp1_RPC_ADDRESS"
-    elder_registation_id: 1
+    elder_registration_id: 1
   rollApp2:
     rpc: "https://rollApp2_RPC_ADDRESS"
-    elder_registation_id: 2
+    elder_registration_id: 2
