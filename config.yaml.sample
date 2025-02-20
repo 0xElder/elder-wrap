@@ -1,0 +1,10 @@
+elder_grpc_endpoint: "localhost:9090"
+elder_wrap_port: "8546"
+key_store_dir: /path/to/keys
+rollup_rpcs:
+  rollApp1:
+    rpc: "https://rollApp1_RPC_ADDRESS"
+    elder_registation_id: 1
+  rollApp2:
+    rpc: "https://rollApp2_RPC_ADDRESS"
+    elder_registation_id: 2

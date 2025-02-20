@@ -1,218 +1,115 @@
 package main
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
 
-	"github.com/0xElder/elder/utils"
-	"github.com/0xElder/elder/x/router/types"
-	"github.com/btcsuite/btcd/btcec/v2"
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/0xElder/elder-wrap/pkg/config"
+	"github.com/0xElder/elder-wrap/pkg/keystore"
+	"github.com/0xElder/elder-wrap/pkg/middleware"
+	"github.com/0xElder/elder-wrap/pkg/rollapp"
+	"github.com/gorilla/mux"
+	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-const DEFAULT_EW_PORT = "8546" // default elder-wrap port is 8546
-var debug = false              // for printing debug logs
+var cfg *config.Config
 
-// Global variables
-var privateKey utils.Secp256k1PrivateKey
-var rollId uint64
-var elderGrpc string
-var rollAppRpc string
-var elderAddress string
-var elderWrapPort string
-var gasPrice uint64
+func main() {
+	cfg = config.NewConfig()
 
-// Middleware to handle and relay the JSON-RPC requests
-func rpcHandler(w http.ResponseWriter, r *http.Request) {
-	// Set the response header
-	w.Header().Set("Content-Type", "application/json")
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Failed to read request", http.StatusBadRequest)
-		return
+	rootCmd := &cobra.Command{
+		Use:   "elder-wrap",
+		Short: "Elder wrap CLI tool",
 	}
 
-	var rpcRequest JsonRPCRequest
-	err = json.Unmarshal(body, &rpcRequest)
+	// Create keystore and client
+	store, err := keystore.NewPlainKeyStore(cfg.KeyStoreDir)
 	if err != nil {
-		http.Error(w, "Invalid JSON-RPC request", http.StatusBadRequest)
-		return
+		log.Fatalf("Failed to create keystore: %v\n", err)
 	}
+	keystoreClient := keystore.NewKeyStoreClient(store)
 
-	// Check if the method is `eth_sendRawTransaction` (signed transaction)
-	if rpcRequest.Method == "eth_sendRawTransaction" {
-		response := JsonRPCResponse{
-			JsonRPC: rpcRequest.JsonRPC,
-			ID:      rpcRequest.ID,
-		}
+	// Add keystore commands
+	rootCmd.AddCommand(keystore.GetKeystoreCommands(keystoreClient))
 
-		// Send the response back
-		defer func() {
-			err := json.NewEncoder(w).Encode(response)
-			if err != nil {
-				http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-			}
-		}()
+	// Add serve command
+	serveCmd := &cobra.Command{
+		Use:   "server",
+		Short: "Start the HTTP server",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runServer(store)
+		},
+	}
+	rootCmd.AddCommand(serveCmd)
 
-		log.Println("Caught a signed transaction:", rpcRequest)
-
-		internalTx, ok := rpcRequest.Params[0].(string)
-		if !ok {
-			response.Error = fmt.Errorf("invalid transaction format")
-			return
-		}
-
-		if internalTx[0:2] != "0x" {
-			internalTx = "0x" + internalTx
-		}
-
-		tx, err := VerifyReceivedRollAppTx(rollAppRpc, internalTx[2:])
-		if err != nil {
-			response.Error = err.Error()
-			return
-		}
-
-		if debug {
-			log.Printf("Received JSON-RPC request, Tx : %+v\n", tx)
-			v, r, s := tx.RawSignatureValues()
-			log.Printf("Tx hash: %s, V: %s, R: %s, S: %s\n", tx.Hash().String(), v.String(), r.String(), s.String())
-		}
-
-		internalTxBytes, err := hexutil.Decode(internalTx)
-		if err != nil {
-			response.Error = err.Error()
-			return
-		}
-
-		conn, err := grpc.NewClient(elderGrpc, grpc.WithTransportCredentials(insecure.NewCredentials())) // The Cosmos SDK doesn't support any transport security mechanism.
-		if err != nil {
-			response.Error = err.Error()
-			return
-		}
-		defer conn.Close()
-
-		authClient := utils.AuthClient(conn)
-		tmClient := utils.TmClient(conn)
-		txClient := utils.TxClient(conn)
-
-		accNum, _, err := utils.QueryElderAccount(authClient, elderAddress)
-		msg := &types.MsgSubmitRollTx{
-			RollId: rollId,
-			TxData: internalTxBytes,
-			Sender: elderAddress,
-			AccNum: accNum,
-		}
-
-		// Build the transaction and broadcast it
-		elderTxHash, err := utils.BuildElderTxFromMsgAndBroadcast(authClient, tmClient, txClient, privateKey, msg, gasPrice)
-		if elderTxHash == "" || err != nil {
-			response.Error = fmt.Errorf("failed to broadcast transaction, elderTxHash: %v, err: %v", elderTxHash, err)
-			return
-		}
-
-		_, rollAppBlock, err := utils.GetElderTxFromHash(txClient, elderTxHash)
-		if err != nil || rollAppBlock == "" {
-			response.Error = fmt.Errorf("failed to fetch elder tx, rollAppBlock: %v, err: %v", rollAppBlock, err)
-			return
-		}
-
-		response.Result = tx.Hash().String()
-	} else {
-		// Relay all other RPC calls to rollup RPC
-		ForwardToRollAppRPC(w, rollAppRpc, body)
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
 	}
 }
 
-func main() {
-	// Validate if all the environment variables are set
-	requiredEnvVars := []string{"ELDER_gRPC", "ROLL_ID", "ROLL_APP_RPC", "COSMOS_PRIVATE_KEY", "PORT"}
-	for _, envVar := range requiredEnvVars {
-		if len(envVar) == 0 {
-			log.Fatalf("Please set the environment variable %s\n", envVar)
-		}
-	}
-
-	// Set global variables
-	elderGrpc = os.Getenv("ELDER_gRPC")
-	rollAppRpc = os.Getenv("ROLL_APP_RPC")
-	rollIdStr := os.Getenv("ROLL_ID")
-	elderWrapPort = os.Getenv("ELDER_WRAP_PORT")
-	gasPriceStr := os.Getenv("GAS_PRICE")
-	debugStr := os.Getenv("DEBUG")
-
-	if debugStr == "true" {
-		debug = true
-	}
-
-	rollIdStr = strings.TrimPrefix(rollIdStr, "http://")
-	rollIdStr = strings.TrimPrefix(rollIdStr, "https://")
-
-	var err error
-	rollId, err = strconv.ParseUint(rollIdStr, 10, 64)
+// runServer contains the original HTTP server logic
+func runServer(keystore *keystore.PlainKeyStore) error {
+	elderConn, err := grpc.NewClient(cfg.ElderGrpcEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("Failed to parse roll ID: %v\n", err)
-		return
+		return fmt.Errorf("failed to connect to elder: %v", err)
 	}
+	defer elderConn.Close()
 
-	// Get rollup ID
-	// Just to make sure the RPC is working
-	_, err = GetRollAppId(rollAppRpc)
-	if err != nil {
-		log.Fatalf("Failed to fetch rollup ID: %v\n", err)
-		return
-	}
+	router := mux.NewRouter()
+	router.Use(middleware.LoggingMiddleware)
 
-	// Set up the public/private key
-	pk_env := os.Getenv("COSMOS_PRIVATE_KEY")
-	pk_env = strings.TrimPrefix(pk_env, "0x")
-
-	pkBytes, err := hex.DecodeString(pk_env)
-	if err != nil {
-		log.Fatalf("Failed to decode private key: %v\n", err)
-	}
-
-	// Load the SECP256K1 private key from the decoded bytes
-	pk, _ := btcec.PrivKeyFromBytes(pkBytes)
-	privateKey = utils.Secp256k1PrivateKey{
-		Key: pk.Serialize(),
-	}
-
-	// Set the gas price
-	gasPrice = 2 // default 2uelder/gas
-	if gasPriceStr != "" {
-		gasPrice, err = strconv.ParseUint(gasPriceStr, 10, 64)
+	rollApps := cfg.ListRollApps()
+	for _, rollApp := range rollApps {
+		rollAppConfig, err := cfg.GetRollAppConfig(rollApp)
 		if err != nil {
-			log.Fatalf("Failed to parse gas price: %v\n", err)
+			return fmt.Errorf("failed to get rollapp config for %s: %v", rollApp, err)
+		}
+
+		rollAppHandler, err := rollapp.NewRollApp(
+			rollAppConfig.RPC,
+			rollAppConfig.ElderRegistationId,
+			keystore,
+			elderConn,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create rollapp handler for %s: %v", rollApp, err)
+		}
+
+		router.HandleFunc(fmt.Sprintf("/%s", rollApp), rollAppHandler.HandleRequest).Methods(http.MethodPost)
+	}
+
+	router.HandleFunc("/", baseHandler).Methods(http.MethodGet)
+
+	fmt.Printf("Starting server on port %s\n", cfg.ElderWrapPort)
+	return http.ListenAndServe(":"+cfg.ElderWrapPort, router)
+}
+
+func baseHandler(w http.ResponseWriter, r *http.Request) {
+	endpoints := make(map[string]interface{})
+	rollApps := cfg.ListRollApps()
+
+	for _, rollApp := range rollApps {
+		rollAppConfig, err := cfg.GetRollAppConfig(rollApp)
+		if err != nil {
+			continue
+		}
+		endpoints[rollApp] = map[string]interface{}{
+			"endpoint":              fmt.Sprintf("/%s", rollApp),
+			"rpc":                   rollAppConfig.RPC,
+			"elder_registration_id": rollAppConfig.ElderRegistationId,
 		}
 	}
 
-	// Get the elder address
-	elderAddress = utils.CosmosPublicKeyToBech32Address("elder", privateKey.PubKey())
-	log.Printf("Elder address: %s\n", elderAddress)
-
-	http.HandleFunc("/elder-address", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(elderAddress)
-	})
-
-	// Setup the HTTP server, listening on port 8546
-	http.HandleFunc("/", rpcHandler)
-
-	if elderWrapPort == "" {
-		elderWrapPort = DEFAULT_EW_PORT
+	response := map[string]interface{}{
+		"elder_grpc": cfg.ElderGrpcEndpoint,
+		"endpoints":  endpoints,
 	}
 
-	fmt.Printf("Starting server on port %s\n", elderWrapPort)
-	elderWrapPort = fmt.Sprintf(":%s", elderWrapPort)
-	log.Fatal(http.ListenAndServe(elderWrapPort, nil))
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
