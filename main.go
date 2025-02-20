@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 
@@ -72,7 +73,7 @@ func runServer(keystore *keystore.PlainKeyStore) error {
 
 		rollAppHandler, err := rollapp.NewRollApp(
 			rollAppConfig.RPC,
-			rollAppConfig.ElderRegistationId,
+			rollAppConfig.ElderRegistrationId,
 			keystore,
 			elderConn,
 		)
@@ -86,7 +87,8 @@ func runServer(keystore *keystore.PlainKeyStore) error {
 	router.HandleFunc("/", baseHandler).Methods(http.MethodGet)
 
 	fmt.Printf("Starting server on port %s\n", cfg.ElderWrapPort)
-	return http.ListenAndServe(":"+cfg.ElderWrapPort, router)
+	addr := net.JoinHostPort("", cfg.ElderWrapPort)
+	return http.ListenAndServe(addr, router)
 }
 
 func baseHandler(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +103,7 @@ func baseHandler(w http.ResponseWriter, r *http.Request) {
 		endpoints[rollApp] = map[string]interface{}{
 			"endpoint":              fmt.Sprintf("/%s", rollApp),
 			"rpc":                   rollAppConfig.RPC,
-			"elder_registration_id": rollAppConfig.ElderRegistationId,
+			"elder_registration_id": rollAppConfig.ElderRegistrationId,
 		}
 	}
 

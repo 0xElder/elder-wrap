@@ -55,16 +55,16 @@ func (c *Config) ListRollApps() []string {
 }
 
 type RollAppConfig struct {
-	RPC                string `yaml:"rpc"`
-	ElderRegistationId uint64 `yaml:"elder_registation_id"`
+	RPC                 string `yaml:"rpc"`
+	ElderRegistrationId uint64 `yaml:"elder_registration_id"`
 }
 
 func (r *RollAppConfig) validate() error {
 	if r.RPC == "" {
 		return fmt.Errorf("rpc is required")
 	}
-	if r.ElderRegistationId <= 0 {
-		return fmt.Errorf("elder_registation_id can't be negative or zero")
+	if r.ElderRegistrationId <= 0 {
+		return fmt.Errorf("elder_registration_id can't be negative or zero")
 	}
 	return nil
 }
