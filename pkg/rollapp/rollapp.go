@@ -91,9 +91,9 @@ func (r *RollApp) VerifyRollAppTx(ctx context.Context, rawTx string) (*types.Tra
 		return nil, nil, fmt.Errorf("key not found: %s", fromAddress.Hex())
 	}
 
-	address := key.PrivateKey.PubKey().Address()
-	if fromAddress.Cmp(common.Address(address)) == 0 {
-		return nil, nil, fmt.Errorf("address mismatch: expected %s, got %s", address.String(), fromAddress.Hex())
+	address := key.EvmAddress
+	if fromAddress.Cmp(address) != 0 {
+		return nil, nil, fmt.Errorf("address mismatch: expected %s, got %s", address.Hex(), fromAddress.Hex())
 	}
 
 	nonce := tx.Nonce()

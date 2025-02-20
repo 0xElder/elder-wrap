@@ -8,6 +8,7 @@ import (
 	"github.com/0xElder/elder/utils"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 type KeyStoreClient struct {
@@ -31,13 +32,8 @@ func (s *KeyStoreClient) ImportPrivateKey(alias string, privateKeyHex string) er
 		Key: btcecPrivateKey.Serialize(),
 	}
 
-	return s.StoreKey(alias, privateKey)
-}
-
-// StoreKey stores an ECDSA private key
-func (s *KeyStoreClient) StoreKey(alias string, privateKey utils.Secp256k1PrivateKey) error {
 	key := &Key{
-		EvmAddress:   common.Address(privateKey.PubKey().Address()),
+		EvmAddress:   crypto.PubkeyToAddress(btcecPrivateKey.ToECDSA().PublicKey),
 		ElderAddress: privateKeyToElderAddress(privateKey),
 		PrivateKey:   privateKey,
 	}

@@ -19,8 +19,8 @@ func TestConfig_validate(t *testing.T) {
 				ElderWrapPort:     "8546",
 				RollAppConfigs: map[string]RollAppConfig{
 					"rollup1": {
-						RPC:                "http://localhost:8545",
-						ElderRegistationId: 1,
+						RPC:                 "http://localhost:8545",
+						ElderRegistrationId: 1,
 					},
 				},
 				KeyStoreDir: "/tmp/keystore",
@@ -33,8 +33,8 @@ func TestConfig_validate(t *testing.T) {
 				ElderWrapPort: "8546",
 				RollAppConfigs: map[string]RollAppConfig{
 					"rollup1": {
-						RPC:                "http://localhost:8545",
-						ElderRegistationId: 1,
+						RPC:                 "http://localhost:8545",
+						ElderRegistrationId: 1,
 					},
 				},
 				KeyStoreDir: "/tmp/keystore",
@@ -57,7 +57,7 @@ func TestConfig_validate(t *testing.T) {
 				ElderWrapPort:     "8546",
 				RollAppConfigs: map[string]RollAppConfig{
 					"rollup1": {
-						ElderRegistationId: 1,
+						ElderRegistrationId: 1,
 					},
 				},
 				KeyStoreDir: "/tmp/keystore",
@@ -71,8 +71,8 @@ func TestConfig_validate(t *testing.T) {
 				ElderWrapPort:     "8546",
 				RollAppConfigs: map[string]RollAppConfig{
 					"rollup1": {
-						RPC:                "http://localhost:8545",
-						ElderRegistationId: 0,
+						RPC:                 "http://localhost:8545",
+						ElderRegistrationId: 0,
 					},
 				},
 				KeyStoreDir: "/tmp/keystore",
@@ -86,8 +86,8 @@ func TestConfig_validate(t *testing.T) {
 				ElderWrapPort:     "8546",
 				RollAppConfigs: map[string]RollAppConfig{
 					"rollup1": {
-						RPC:                "http://localhost:8545",
-						ElderRegistationId: 1,
+						RPC:                 "http://localhost:8545",
+						ElderRegistrationId: 1,
 					},
 				},
 			},
@@ -99,8 +99,8 @@ func TestConfig_validate(t *testing.T) {
 				ElderGrpcEndpoint: "localhost:50051",
 				RollAppConfigs: map[string]RollAppConfig{
 					"rollup1": {
-						RPC:                "http://localhost:8545",
-						ElderRegistationId: 1,
+						RPC:                 "http://localhost:8545",
+						ElderRegistrationId: 1,
 					},
 				},
 				KeyStoreDir: "/tmp/keystore",
@@ -131,8 +131,8 @@ func TestNewConfig(t *testing.T) {
 		ElderWrapPort:     "8546",
 		RollAppConfigs: map[string]RollAppConfig{
 			"rollup1": {
-				RPC:                "http://localhost:8545",
-				ElderRegistationId: 1,
+				RPC:                 "http://localhost:8545",
+				ElderRegistrationId: 1,
 			},
 		},
 		KeyStoreDir: "/tmp/keystore",
