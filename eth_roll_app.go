@@ -197,7 +197,7 @@ func VerifyReceivedRollAppTx(rollAppRpc, rawTx string) (*types.Transaction, erro
 	}
 
 	pubKey := privateKey.PubKey().Address()
-	if fromAddress.Cmp(common.Address(pubKey)) == 0 {
+	if fromAddress.Cmp(common.Address(pubKey)) != 0 {
 		log.Fatalf("Sender address mismatch: %s != %s\n", fromAddress, pubKey.String())
 		return nil, fmt.Errorf("Sender address mismatch: %s != %s\n", fromAddress, pubKey.String())
 	}
