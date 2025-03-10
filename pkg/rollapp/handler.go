@@ -77,6 +77,13 @@ func (r *RollApp) HandleRequest(w http.ResponseWriter, req *http.Request) {
 			response.Error = err.Error()
 			return
 		}
+		log.Printf(`
+			tx_hash: %s
+			tx_to: %s
+			tx_value: %s
+			evm_address: %s
+			elder_address: %s
+		`, tx.Hash().Hex(), tx.To().Hex(), tx.Value().String(), key.EvmAddress.Hex(), key.ElderAddress)
 
 		internalTxBytes, err := hexutil.Decode(internalTx)
 		if err != nil {
