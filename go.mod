@@ -2,10 +2,7 @@ module github.com/0xElder/elder-wrap
 
 go 1.22.11
 
-require (
-	github.com/0xElder/elder v0.3.1
-	github.com/btcsuite/btcd/btcec/v2 v2.3.4
-)
+require github.com/0xElder/elder v0.3.1
 
 require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect

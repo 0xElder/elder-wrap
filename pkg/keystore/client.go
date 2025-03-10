@@ -1,14 +1,10 @@
 package keystore
 
 import (
-	"encoding/hex"
 	"fmt"
-	"strings"
 
 	"github.com/0xElder/elder/utils"
-	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 type KeyStoreClient struct {
@@ -21,19 +17,13 @@ func NewKeyStoreClient(store KeyStore) *KeyStoreClient {
 
 // ImportPrivateKey imports a private key with an alias
 func (s *KeyStoreClient) ImportPrivateKey(alias string, privateKeyHex string) error {
-	privateKeyHex = strings.TrimPrefix(privateKeyHex, "0x")
-	privateKeyBytes, err := hex.DecodeString(privateKeyHex)
+	privateKey, err := utils.PrivateKeyStringToSecp256k1PrivKey(privateKeyHex)
 	if err != nil {
-		return fmt.Errorf("failed to decode private key: %w", err)
-	}
-
-	btcecPrivateKey, _ := btcec.PrivKeyFromBytes(privateKeyBytes)
-	privateKey := utils.Secp256k1PrivateKey{
-		Key: btcecPrivateKey.Serialize(),
+		return fmt.Errorf("failed to import private key: %v", err)
 	}
 
 	key := &Key{
-		EvmAddress:   crypto.PubkeyToAddress(btcecPrivateKey.ToECDSA().PublicKey),
+		EvmAddress:   common.BytesToAddress(privateKey.PubKey().Address()),
 		ElderAddress: privateKeyToElderAddress(privateKey),
 		PrivateKey:   privateKey,
 	}

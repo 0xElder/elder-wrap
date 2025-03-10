@@ -77,27 +77,6 @@ func (r *RollApp) HandleRequest(w http.ResponseWriter, req *http.Request) {
 			response.Error = err.Error()
 			return
 		}
-		// Check validity of transaction fields and print safely
-		txHash := tx.Hash().Hex()
-
-		var txTo string
-		if tx.To() != nil {
-			txTo = tx.To().Hex()
-		} else {
-			txTo = "contract creation"
-		}
-
-		txValue := tx.Value().String()
-		evmAddress := key.EvmAddress.Hex()
-		elderAddress := key.ElderAddress
-
-		log.Printf(`
-			tx_hash: %s
-			tx_to: %s
-			tx_value: %s
-			evm_address: %s
-			elder_address: %s
-		`, txHash, txTo, txValue, evmAddress, elderAddress)
 
 		internalTxBytes, err := hexutil.Decode(internalTx)
 		if err != nil {
