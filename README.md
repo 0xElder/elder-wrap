@@ -36,6 +36,33 @@ go build -o elder-wrap
 ./elder-wrap keystore
 ```
 
+### To list all keys
+```
+./elder-wrap keystore list
+```
+
+### To import a new key
+```
+./elder-wrap keystore import [alias] [private_key]
+```
+
+### To delete a key
+```
+./elder-wrap keystore delete [alias]
+```
+### To get key details by alias
+```
+./elder-wrap keystore get [alias]
+```
+### To get key details by elder address
+```
+./elder-wrap keystore find-elder [elder_address]
+```
+### To get key details by evm address
+```
+./elder-wrap keystore find-evm [evm_address]
+```
+
 ## API Endpoints
 Base endpoint: `http://localhost:8546`
 
