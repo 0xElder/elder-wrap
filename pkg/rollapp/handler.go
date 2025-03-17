@@ -38,9 +38,33 @@ func (r *RollApp) HandleRequest(w http.ResponseWriter, req *http.Request) {
 	}
 	defer req.Body.Close()
 
+	// Handle batch requests
+	if isBatch(body) {
+		var rpcRequests []JsonRPCRequest
+		err = json.Unmarshal(body, &rpcRequests)
+		if err != nil {
+			log.Printf("Failed to unmarshal request: %v", err)
+			http.Error(w, "Invalid JSON-RPC request", http.StatusBadRequest)
+			return
+		}
+
+		for _, rpcRequest := range rpcRequests {
+			if rpcRequest.Method == "eth_sendRawTransaction" {
+				log.Printf("Batch request contains eth_sendRawTransaction, not supported")
+				http.Error(w, "Batch request contains eth_sendRawTransaction, not supported", http.StatusBadRequest)
+				return
+			}
+		}
+
+		// Relay batch requests to rollApp RPC if there are no eth_sendRawTransaction
+		r.ForwardtoRollAppRPC(w, body)
+		return
+	}
+
 	var rpcRequest JsonRPCRequest
 	err = json.Unmarshal(body, &rpcRequest)
 	if err != nil {
+		log.Printf("Failed to unmarshal request: %v", err)
 		http.Error(w, "Invalid JSON-RPC request", http.StatusBadRequest)
 		return
 	}
@@ -118,4 +142,17 @@ func (r *RollApp) HandleRequest(w http.ResponseWriter, req *http.Request) {
 		// Relay all other calls to rollApp RPC
 		r.ForwardtoRollAppRPC(w, body)
 	}
+}
+
+// isBatch returns true when the first non-whitespace characters is '['
+// Code taken from go-ethereum/rpc/json.go
+func isBatch(raw json.RawMessage) bool {
+	for _, c := range raw {
+		// skip insignificant whitespace (http://www.ietf.org/rfc/rfc4627.txt)
+		if c == 0x20 || c == 0x09 || c == 0x0a || c == 0x0d {
+			continue
+		}
+		return c == '['
+	}
+	return false
 }
