@@ -9,13 +9,12 @@ import (
 	"os"
 
 	"github.com/0xElder/elder-wrap/pkg/config"
+	"github.com/0xElder/elder-wrap/pkg/elder"
 	"github.com/0xElder/elder-wrap/pkg/keystore"
 	"github.com/0xElder/elder-wrap/pkg/middleware"
 	"github.com/0xElder/elder-wrap/pkg/rollapp"
 	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 var cfg *config.Config
@@ -54,12 +53,13 @@ func main() {
 }
 
 // runServer contains the original HTTP server logic
-func runServer(keystore *keystore.PlainKeyStore) error {
-	elderConn, err := grpc.NewClient(cfg.ElderGrpcEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+func runServer(keystore keystore.KeyStore) error {
+
+	elderClient, err := elder.NewElderClient(cfg.ElderGrpcEndpoint, keystore)
 	if err != nil {
 		return fmt.Errorf("failed to connect to elder: %v", err)
 	}
-	defer elderConn.Close()
+	defer elderClient.Conn.Close()
 
 	router := mux.NewRouter()
 	router.Use(middleware.LoggingMiddleware)
@@ -75,7 +75,7 @@ func runServer(keystore *keystore.PlainKeyStore) error {
 			rollAppConfig.RPC,
 			rollAppConfig.ElderRegistrationId,
 			keystore,
-			elderConn,
+			elderClient,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create rollapp handler for %s: %v", rollApp, err)

@@ -8,11 +8,11 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/0xElder/elder-wrap/pkg/elder"
 	"github.com/0xElder/elder-wrap/pkg/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"google.golang.org/grpc"
 )
 
 type RollApp struct {
@@ -20,10 +20,10 @@ type RollApp struct {
 	ElderRegistationId uint64
 	client             *ethclient.Client
 	keyStore           keystore.KeyStore
-	elderConn          *grpc.ClientConn
+	elderClient        *elder.ElderClient
 }
 
-func NewRollApp(rpc string, elderId uint64, keyStore keystore.KeyStore, elderConn *grpc.ClientConn) (*RollApp, error) {
+func NewRollApp(rpc string, elderId uint64, keyStore keystore.KeyStore, elderClient *elder.ElderClient) (*RollApp, error) {
 	client, err := ethclient.Dial(rpc)
 	if err != nil {
 		return nil, err
@@ -34,7 +34,7 @@ func NewRollApp(rpc string, elderId uint64, keyStore keystore.KeyStore, elderCon
 		ElderRegistationId: elderId,
 		client:             client,
 		keyStore:           keyStore,
-		elderConn:          elderConn,
+		elderClient:        elderClient,
 	}, nil
 }
 

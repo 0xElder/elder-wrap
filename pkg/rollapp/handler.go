@@ -108,11 +108,7 @@ func (r *RollApp) HandleRequest(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		authClient := utils.AuthClient(r.elderConn)
-		tmClient := utils.TmClient(r.elderConn)
-		txCLient := utils.TxClient(r.elderConn)
-
-		accNum, _, err := utils.QueryElderAccount(authClient, key.ElderAddress)
+		accNum, _, err := utils.QueryElderAccount(utils.AuthClient(r.elderClient.Conn), key.ElderAddress)
 		if err != nil {
 			response.Error = err.Error()
 			return
@@ -125,13 +121,13 @@ func (r *RollApp) HandleRequest(w http.ResponseWriter, req *http.Request) {
 			AccNum: accNum,
 		}
 
-		elderTxHash, err := utils.BuildElderTxFromMsgAndBroadcast(authClient, tmClient, txCLient, key.PrivateKey, msg, 2)
-		if elderTxHash == "" || err != nil {
-			response.Error = fmt.Errorf("failed to broadcast transaction, elderTxHash: %v, err: %v", elderTxHash, err)
+		elderTxHash, err := r.elderClient.BroadCastTxn(key, msg)
+		if err != nil {
+			response.Error = err.Error()
 			return
 		}
 
-		_, rollAppBlock, err := utils.GetElderTxFromHash(txCLient, elderTxHash)
+		_, rollAppBlock, err := utils.GetElderTxFromHash(utils.TxClient(r.elderClient.Conn), elderTxHash)
 		if err != nil || rollAppBlock == "" {
 			response.Error = fmt.Errorf("failed to fetch elder tx, rollAppBlock: %v, err: %v", rollAppBlock, err)
 			return
