@@ -2,6 +2,7 @@ package elder
 
 import (
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/0xElder/elder-wrap/pkg/keystore"
@@ -36,8 +37,10 @@ func NewElderClient(endpoint string, keyStore keystore.KeyStore) (*ElderClient, 
 }
 
 func (e *ElderClient) BroadCastTxn(key *keystore.Key, msg *types.MsgSubmitRollTx) (string, error) {
+	log.Printf("Locking transaction to elder with address %s with roll Id: %v", key.ElderAddress, msg.RollId)
 	e.locks[key.ElderAddress].Lock()
 	defer e.locks[key.ElderAddress].Unlock()
+	log.Printf("Broadcasting transaction to elder with address %s with roll Id: %v", key.ElderAddress, msg.RollId)
 
 	elderTxHash, err := utils.BuildElderTxFromMsgAndBroadcast(
 		utils.AuthClient(e.Conn),
@@ -49,5 +52,6 @@ func (e *ElderClient) BroadCastTxn(key *keystore.Key, msg *types.MsgSubmitRollTx
 	if elderTxHash == "" || err != nil {
 		return elderTxHash, fmt.Errorf("failed to broadcast transaction, elderTxHash: %v, err: %v", elderTxHash, err)
 	}
+	log.Printf("Unlocking transaction to elder with address %s with roll Id: %v", key.ElderAddress, msg.RollId)
 	return elderTxHash, nil
 }
