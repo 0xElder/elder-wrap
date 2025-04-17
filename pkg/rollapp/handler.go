@@ -80,6 +80,7 @@ func (r *RollApp) HandleRequest(w http.ResponseWriter, req *http.Request) {
 		defer func() {
 			err := json.NewEncoder(w).Encode(response)
 			if err != nil {
+				log.Printf("Failed to encode response: %v", err)
 				http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 			}
 		}()
