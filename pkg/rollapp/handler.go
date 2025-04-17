@@ -136,6 +136,12 @@ func (r *RollApp) HandleRequest(w http.ResponseWriter, req *http.Request) {
 
 		response.Result = tx.Hash().String()
 	} else {
+		log.Printf("Req RPC: %s", rpcRequest.JsonRPC)
+		log.Printf("Handler RPC: %s", r.RPC)
+		log.Printf("RPC Method: %s", rpcRequest.Method)
+		log.Printf("RPC Params: %v", rpcRequest.Params)
+		log.Printf("RPC ID: %v", rpcRequest.ID)
+
 		// Relay all other calls to rollApp RPC
 		r.ForwardtoRollAppRPC(w, body)
 	}
