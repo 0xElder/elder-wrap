@@ -46,19 +46,18 @@ func (c *Config) ListRollApps() []string {
 }
 
 func (c *Config) GetSlogLevel() slog.Level {
-	if c.LogLevel == "info" {
+	switch c.LogLevel {
+	case "info":
+		return slog.LevelInfo
+	case "debug":
+		return slog.LevelDebug
+	case "error":
+		return slog.LevelError
+	case "warn":
+		return slog.LevelWarn
+	default:
 		return slog.LevelInfo
 	}
-	if c.LogLevel == "debug" {
-		return slog.LevelDebug
-	}
-	if c.LogLevel == "error" {
-		return slog.LevelError
-	}
-	if c.LogLevel == "warn" {
-		return slog.LevelWarn
-	}
-	return slog.LevelInfo
 }
 
 func (r *RollAppConfig) validate() error {
