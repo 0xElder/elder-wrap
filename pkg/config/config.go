@@ -3,71 +3,11 @@ package config
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 
 	"gopkg.in/yaml.v3"
 )
-
-const DefaultElderWrapPort = "8546"
-
-type Config struct {
-	ElderGrpcEndpoint string                   `yaml:"elder_grpc_endpoint"`
-	ElderWrapPort     string                   `yaml:"elder_wrap_port"`
-	RollAppConfigs    map[string]RollAppConfig `yaml:"rollup_rpcs"`
-	KeyStoreDir       string                   `yaml:"key_store_dir"`
-}
-
-func (c *Config) validate() error {
-	if c.ElderGrpcEndpoint == "" {
-		return fmt.Errorf("elder_grpc_endpoint is required")
-	}
-	if c.ElderWrapPort == "" {
-		c.ElderWrapPort = DefaultElderWrapPort
-	}
-	if len(c.RollAppConfigs) == 0 {
-		return fmt.Errorf("rollup_rpcs is required")
-	}
-	for _, r := range c.RollAppConfigs {
-		if err := r.validate(); err != nil {
-			return err
-		}
-	}
-	if c.KeyStoreDir == "" {
-		return fmt.Errorf("key_store_dir is required")
-	}
-	return nil
-}
-
-func (c *Config) GetRollAppConfig(name string) (*RollAppConfig, error) {
-	r, ok := c.RollAppConfigs[name]
-	if !ok {
-		return nil, fmt.Errorf("rollApp %s not found", name)
-	}
-	return &r, nil
-}
-
-func (c *Config) ListRollApps() []string {
-	var result []string
-	for k := range c.RollAppConfigs {
-		result = append(result, k)
-	}
-	return result
-}
-
-type RollAppConfig struct {
-	RPC                 string `yaml:"rpc"`
-	ElderRegistrationId uint64 `yaml:"elder_registration_id"`
-}
-
-func (r *RollAppConfig) validate() error {
-	if r.RPC == "" {
-		return fmt.Errorf("rpc is required")
-	}
-	if r.ElderRegistrationId <= 0 {
-		return fmt.Errorf("elder_registration_id can't be negative or zero")
-	}
-	return nil
-}
 
 func NewConfig() *Config {
 	file, err := os.ReadFile("config.yaml")
@@ -87,4 +27,46 @@ func NewConfig() *Config {
 	}
 
 	return &c
+}
+
+func (c *Config) GetRollAppConfig(name string) (*RollAppConfig, error) {
+	r, ok := c.RollAppConfigs[name]
+	if !ok {
+		return nil, fmt.Errorf("rollApp %s not found", name)
+	}
+	return &r, nil
+}
+
+func (c *Config) ListRollApps() []string {
+	var result []string
+	for k := range c.RollAppConfigs {
+		result = append(result, k)
+	}
+	return result
+}
+
+func (c *Config) GetSlogLevel() slog.Level {
+	if c.LogLevel == "info" {
+		return slog.LevelInfo
+	}
+	if c.LogLevel == "debug" {
+		return slog.LevelDebug
+	}
+	if c.LogLevel == "error" {
+		return slog.LevelError
+	}
+	if c.LogLevel == "warn" {
+		return slog.LevelWarn
+	}
+	return slog.LevelInfo
+}
+
+func (r *RollAppConfig) validate() error {
+	if r.RPC == "" {
+		return fmt.Errorf("rpc is required")
+	}
+	if r.ElderRegistrationId <= 0 {
+		return fmt.Errorf("elder_registration_id can't be negative or zero")
+	}
+	return nil
 }
