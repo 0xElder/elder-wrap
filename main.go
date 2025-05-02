@@ -1,9 +1,10 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -11,16 +12,24 @@ import (
 	"github.com/0xElder/elder-wrap/pkg/config"
 	"github.com/0xElder/elder-wrap/pkg/elder"
 	"github.com/0xElder/elder-wrap/pkg/keystore"
+	"github.com/0xElder/elder-wrap/pkg/logging"
 	"github.com/0xElder/elder-wrap/pkg/middleware"
 	"github.com/0xElder/elder-wrap/pkg/rollapp"
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
 var cfg *config.Config
 
 func main() {
+	ctx, ctxCancel := context.WithCancel(context.Background())
+	defer ctxCancel()
+
 	cfg = config.NewConfig()
+	loggerOpts := &slog.HandlerOptions{Level: cfg.GetSlogLevel()}
+	// Change to JSON/Text logger if needed
+	logger := logging.NewDevSlogger(loggerOpts)
 
 	rootCmd := &cobra.Command{
 		Use:   "elder-wrap",
@@ -30,9 +39,10 @@ func main() {
 	// Create keystore and client
 	store, err := keystore.NewPlainKeyStore(cfg.KeyStoreDir)
 	if err != nil {
-		log.Fatalf("Failed to create keystore: %v\n", err)
+		logger.Error(ctx, "failed to create keystore", "error", err)
+		os.Exit(1)
 	}
-	keystoreClient := keystore.NewKeyStoreClient(store)
+	keystoreClient := keystore.NewKeyStoreClient(store, logger.With("component", "KeyStoreClient"))
 
 	// Add keystore commands
 	rootCmd.AddCommand(keystore.GetKeystoreCommands(keystoreClient))
@@ -42,43 +52,50 @@ func main() {
 		Use:   "server",
 		Short: "Start the HTTP server",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runServer(store)
+			return runServer(ctx, store, logger)
 		},
 	}
 	rootCmd.AddCommand(serveCmd)
 
 	if err := rootCmd.Execute(); err != nil {
+		logger.Error(ctx, "Elder-wrap failed", "error", err)
 		os.Exit(1)
 	}
 }
 
 // runServer contains the original HTTP server logic
-func runServer(keystore keystore.KeyStore) error {
-
-	elderClient, err := elder.NewElderClient(cfg.ElderGrpcEndpoint, keystore)
+func runServer(ctx context.Context, keystore keystore.KeyStore, logger logging.Logger) error {
+	elderClient, err := elder.NewElderClient(cfg.ElderGrpcEndpoint, keystore, logger.With("component", "ElderClient"))
 	if err != nil {
-		return fmt.Errorf("failed to connect to elder: %v", err)
+		logger.Error(ctx, "failed to create elder client", "error", err)
+		return errors.Wrap(err, "failed to create elder client")
 	}
 	defer elderClient.Conn.Close()
 
 	router := mux.NewRouter()
-	router.Use(middleware.LoggingMiddleware)
+	router.Use(func(next http.Handler) http.Handler {
+		return middleware.RestLoggingMiddleware(next, logger)
+	})
 
 	rollApps := cfg.ListRollApps()
 	for _, rollApp := range rollApps {
 		rollAppConfig, err := cfg.GetRollAppConfig(rollApp)
 		if err != nil {
-			return fmt.Errorf("failed to get rollapp config for %s: %v", rollApp, err)
+			logger.Error(ctx, "failed to get rollapp config", "rollapp", rollApp, "error", err)
+			return errors.Wrapf(err, "failed to get rollapp config for %s", rollApp)
 		}
 
+		logger.Info(ctx, "Creating rollapp handler", "rollapp", rollApp, "rpc", rollAppConfig.RPC, "elderId", rollAppConfig.ElderRegistrationId)
 		rollAppHandler, err := rollapp.NewRollApp(
 			rollAppConfig.RPC,
 			rollAppConfig.ElderRegistrationId,
 			keystore,
+			logger.With("rollapp", rollApp),
 			elderClient,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to create rollapp handler for %s: %v", rollApp, err)
+			logger.Error(ctx, "failed to create rollapp handler", "rollapp", rollApp, "error", err)
+			return errors.Wrapf(err, "failed to create rollapp handler for %s", rollApp)
 		}
 
 		router.HandleFunc(fmt.Sprintf("/%s", rollApp), rollAppHandler.HandleRequest).Methods(http.MethodPost)
@@ -86,7 +103,7 @@ func runServer(keystore keystore.KeyStore) error {
 
 	router.HandleFunc("/", baseHandler).Methods(http.MethodGet)
 
-	fmt.Printf("Starting server on port %s\n", cfg.ElderWrapPort)
+	logger.Info(ctx, "Starting elder-wrap server", "port", cfg.ElderWrapPort)
 	addr := net.JoinHostPort("", cfg.ElderWrapPort)
 	return http.ListenAndServe(addr, router)
 }

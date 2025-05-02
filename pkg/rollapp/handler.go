@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/0xElder/elder/utils"
@@ -29,10 +28,12 @@ type JsonRPCResponse struct {
 }
 
 func (r *RollApp) HandleRequest(w http.ResponseWriter, req *http.Request) {
+	logger := r.logger.With("method", "HandleRequest")
 	w.Header().Set("Content-Type", "application/json")
 
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
+		logger.Error(req.Context(), "Failed to read request body", "error", err)
 		http.Error(w, "Failed to read request", http.StatusBadRequest)
 		return
 	}
@@ -43,14 +44,14 @@ func (r *RollApp) HandleRequest(w http.ResponseWriter, req *http.Request) {
 		var rpcRequests []JsonRPCRequest
 		err = json.Unmarshal(body, &rpcRequests)
 		if err != nil {
-			log.Printf("Failed to unmarshal request: %v", err)
+			logger.Error(req.Context(), "Failed to unmarshal batch request", "error", err)
 			http.Error(w, "Invalid JSON-RPC request", http.StatusBadRequest)
 			return
 		}
 
 		for _, rpcRequest := range rpcRequests {
 			if rpcRequest.Method == "eth_sendRawTransaction" {
-				log.Printf("Batch request contains eth_sendRawTransaction, not supported")
+				logger.Error(req.Context(), "Batch request contains eth_sendRawTransaction, not supported")
 				http.Error(w, "Batch request contains eth_sendRawTransaction, not supported", http.StatusBadRequest)
 				return
 			}
@@ -64,13 +65,16 @@ func (r *RollApp) HandleRequest(w http.ResponseWriter, req *http.Request) {
 	var rpcRequest JsonRPCRequest
 	err = json.Unmarshal(body, &rpcRequest)
 	if err != nil {
-		log.Printf("Failed to unmarshal request: %v", err)
+		logger.Error(req.Context(), "Failed to unmarshal request", "error", err)
 		http.Error(w, "Invalid JSON-RPC request", http.StatusBadRequest)
 		return
 	}
 
+	logger.Debug(req.Context(), "Received JSON-RPC request", "method", rpcRequest.Method, "params", rpcRequest.Params)
+
 	// Check if the method is `eth_sendRawTransaction` (signed transaction)
 	if rpcRequest.Method == "eth_sendRawTransaction" {
+		logger.Debug(req.Context(), "Received eth_sendRawTransaction request")
 		response := JsonRPCResponse{
 			JsonRPC: rpcRequest.JsonRPC,
 			ID:      rpcRequest.ID,
@@ -80,15 +84,14 @@ func (r *RollApp) HandleRequest(w http.ResponseWriter, req *http.Request) {
 		defer func() {
 			err := json.NewEncoder(w).Encode(response)
 			if err != nil {
-				log.Printf("Failed to encode response: %v", err)
+				logger.Error(req.Context(), "Failed to encode response", "error", err)
 				http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 			}
 		}()
 
-		log.Println("Caught a signed transaction:", rpcRequest)
-
 		internalTx, ok := rpcRequest.Params[0].(string)
 		if !ok {
+			logger.Error(req.Context(), "Invalid transaction format", "params", rpcRequest.Params)
 			response.Error = fmt.Errorf("invalid transaction format")
 			return
 		}
@@ -99,18 +102,21 @@ func (r *RollApp) HandleRequest(w http.ResponseWriter, req *http.Request) {
 
 		tx, key, err := r.VerifyRollAppTx(context.Background(), internalTx[2:])
 		if err != nil {
+			logger.Error(req.Context(), "Failed to verify transaction", "error", err)
 			response.Error = err.Error()
 			return
 		}
 
 		internalTxBytes, err := hexutil.Decode(internalTx)
 		if err != nil {
+			logger.Error(req.Context(), "Failed to decode transaction", "error", err)
 			response.Error = err.Error()
 			return
 		}
 
 		accNum, _, err := utils.QueryElderAccount(utils.AuthClient(r.elderClient.Conn), key.ElderAddress)
 		if err != nil {
+			logger.Error(req.Context(), "Failed to query elder account", "error", err)
 			response.Error = err.Error()
 			return
 		}
@@ -124,12 +130,14 @@ func (r *RollApp) HandleRequest(w http.ResponseWriter, req *http.Request) {
 
 		elderTxHash, err := r.elderClient.BroadCastTxn(key, msg)
 		if err != nil {
+			logger.Error(req.Context(), "Failed to broadcast transaction", "error", err)
 			response.Error = err.Error()
 			return
 		}
 
 		_, rollAppBlock, err := utils.GetElderTxFromHash(utils.TxClient(r.elderClient.Conn), elderTxHash)
 		if err != nil || rollAppBlock == "" {
+			logger.Error(req.Context(), "Failed to fetch elder transaction", "error", err)
 			response.Error = fmt.Errorf("failed to fetch elder tx, rollAppBlock: %v, err: %v", rollAppBlock, err)
 			return
 		}

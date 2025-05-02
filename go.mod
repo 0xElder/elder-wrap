@@ -2,7 +2,10 @@ module github.com/0xElder/elder-wrap
 
 go 1.22.11
 
-require github.com/0xElder/elder v0.3.1
+require (
+	github.com/0xElder/elder v0.3.1
+	github.com/golang-cz/devslog v0.0.13
+)
 
 require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
@@ -135,7 +138,7 @@ require (
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/petermattis/goid v0.0.0-20240813172612-4fcff4a6cae7 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pkg/errors v0.9.1
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.20.5 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
